@@ -49,6 +49,12 @@
     },
     "workflow": {
       "$ref": "#/$defs/workflow"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {

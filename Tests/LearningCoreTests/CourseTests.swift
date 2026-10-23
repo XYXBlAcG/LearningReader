@@ -71,6 +71,15 @@ final class CourseTests: XCTestCase {
         XCTAssertEqual(try store.current()?.revision, original.revision)
     }
 
+    func testExtraRootDocumentsUseCanonicalCoursePaths() throws {
+        let root = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("# 写作规范".utf8).write(to: root.appendingPathComponent("writing.md"))
+        let manifest = CourseManifest(schemaVersion: 1, title: "Course", entry: "lessons/one.md", sections: [.init(kind: .note, path: "lessons", title: "课程")], assets: [], documents: ["writing.md"])
+        try JSONEncoder().encode(manifest).write(to: root.appendingPathComponent("course.json"))
+        XCTAssertEqual(Set(try CourseIndexer.build(root: root, configuration: .standard).documents.map(\.path)), ["lessons/one.md", "writing.md"])
+    }
+
     func testSourcesKeepStableIndependentIdentity() throws {
         let a = CourseSource.remote(repository: try Repository("a/course"), repositoryID: 1, branch: "main", configuration: .standard)
         let b = CourseSource.remote(repository: try Repository("b/course"), repositoryID: 2, branch: "main", configuration: .standard)

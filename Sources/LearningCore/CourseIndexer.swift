@@ -35,6 +35,9 @@ public enum CourseIndexer {
             do {
                 let data = try Data(contentsOf: CoursePath.file("course.json", in: root))
                 guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], Set(object.keys).isSubset(of: CourseManifest.propertyNames), let sections = object["sections"] as? [[String: Any]], sections.allSatisfy({ Set($0.keys).isSubset(of: CourseSection.propertyNames) }) else { throw ReaderError.course("清单包含不支持的字段或分组。") }
+                if let value = object["workflow"] {
+                    guard let workflow = value as? [String: Any], Set(workflow.keys).isSubset(of: CourseWorkflow.propertyNames) else { throw ReaderError.course("本地工作流包含不支持的字段。") }
+                }
                 manifest = try JSONDecoder().decode(CourseManifest.self, from: data)
             }
             catch { throw ReaderError.course("course.json：" + error.localizedDescription) }
@@ -63,8 +66,10 @@ public enum CourseIndexer {
                 documents.append(.init(kind: section.kind, path: path, source: try String(contentsOf: url, encoding: .utf8)))
             }
         }
-        if !seen.contains(manifest.entry) {
-            documents.append(.init(kind: .note, path: manifest.entry, source: try String(contentsOf: CoursePath.file(manifest.entry, in: root), encoding: .utf8)))
+        for path in [manifest.entry] + (manifest.documents ?? []) where !seen.contains(path) {
+            guard CoursePath.valid(path), availableSet.contains(path), path.lowercased().hasSuffix(".md"), folded.insert(path.lowercased()).inserted else { throw ReaderError.course("附加文章不存在或路径冲突：" + path) }
+            documents.append(.init(kind: .note, path: path, source: try String(contentsOf: CoursePath.file(path, in: root), encoding: .utf8)))
+            seen.insert(path)
         }
         var media = Set<String>()
         for asset in manifest.assets {

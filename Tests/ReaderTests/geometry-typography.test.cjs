@@ -38,4 +38,3 @@ test('reader and previews share Codex colors and range controls',()=>{
   assert.match(theme,/input\[type=range\]:focus-visible/);
   assert.match(theme,/background:\s*var\(--accent\)/);
 });
-

@@ -35,8 +35,9 @@ public struct CourseManifest: Codable, Sendable {
     public let exclude: [String]?
     public let redirects: String?
     public let workflow: CourseWorkflow?
-    public static let propertyNames: Set<String> = ["schemaVersion", "title", "entry", "sections", "assets", "exclude", "redirects", "workflow"]
-    public init(schemaVersion: Int, title: String, entry: String, sections: [CourseSection], assets: [String], exclude: [String]? = nil, redirects: String? = nil, workflow: CourseWorkflow? = nil) {
+    public let documents: [String]?
+    public static let propertyNames: Set<String> = ["schemaVersion", "title", "entry", "sections", "assets", "exclude", "redirects", "workflow", "documents"]
+    public init(schemaVersion: Int, title: String, entry: String, sections: [CourseSection], assets: [String], exclude: [String]? = nil, redirects: String? = nil, workflow: CourseWorkflow? = nil, documents: [String]? = nil) {
         self.schemaVersion = schemaVersion
         self.title = title
         self.entry = entry
@@ -45,5 +46,6 @@ public struct CourseManifest: Codable, Sendable {
         self.exclude = exclude
         self.redirects = redirects
         self.workflow = workflow
+        self.documents = documents
     }
 }

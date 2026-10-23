@@ -472,8 +472,7 @@ function sidebarSection(file) {
 }
 
 function sidebarLabel(file) {
-  const parts = file.label.split("/");
-  return parts[parts.length - 1];
+  return file.label || file.path;
 }
 
 function createFileItem(file, kind, depth = 0, pinned = false) {
@@ -803,6 +802,7 @@ $("article").addEventListener("click", (e) => {
   const anchor = hrefParts.length > 1 ? headingId(hrefParts.slice(1).join("#"), new Set()) : "";
   const destination=ReaderCourseContext.resolve(raw,active,FILES);
   if(destination)selectFile(destination.kind,destination.path,anchor);
+  else showNavigationError("此文件不在课程阅读范围内，请检查课程清单或原仓库链接。");
 });
 
 /* ---------- 事件绑定 ---------- */
