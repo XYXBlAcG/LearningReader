@@ -41,6 +41,7 @@ final class ReaderToolbar: NSObject, NSToolbarDelegate {
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         let key = identifier.rawValue
         let item = NSToolbarItem(itemIdentifier: identifier)
+        item.autovalidates = false
         item.label = labels[key] ?? (key == "more" ? "更多" : "当前文档")
         item.toolTip = item.label
         if key == "title" {

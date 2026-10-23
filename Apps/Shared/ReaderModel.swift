@@ -109,7 +109,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func sync(automatic: Bool = false) {
-        guard let source = selected, !syncing, !authenticating else { return }
+        guard let source = selected, !syncing, !authenticating, !workflowRunning else { return }
         if automatic && Date().timeIntervalSince(lastAttempt) < 60 { return }
         lastAttempt = Date()
         syncing = true
@@ -246,7 +246,7 @@ final class ReaderModel: ObservableObject {
 
     #if os(macOS)
     func runWorkflow() async {
-        guard selected?.localPath != nil, let snapshot, let workflow = snapshot.course.manifest.workflow, !workflowRunning else { return }
+        guard selected?.localPath != nil, let snapshot, let workflow = snapshot.course.manifest.workflow, !workflowRunning, !syncing, !authenticating else { return }
         workflowRunning = true
         defer { workflowRunning = false }
         workflowLog = nil
