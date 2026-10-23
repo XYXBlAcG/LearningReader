@@ -2,15 +2,16 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { ReaderNavigation } = require("../../Sources/LearningCore/Resources/Reader/navigation.js");
 
-function environment() {
+function environment(initialURL = "mathreader://local/reader/index.html") {
   const data = new Map();
   const storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) };
-  const entries = [{ state: null, url: "/reader" }];
+  const entries = [{ state: null, url: initialURL }];
   let cursor = 0;
   const browser = {
     get state() { return entries[cursor].state; },
-    replaceState(state, _, url) { entries[cursor] = { state, url }; },
-    pushState(state, _, url) { entries.splice(cursor + 1); entries.push({ state, url }); cursor++; },
+    get url() { return entries[cursor].url; },
+    replaceState(state, _, url) { entries[cursor] = { state, url: new URL(url, entries[cursor].url).href }; },
+    pushState(state, _, url) { entries.splice(cursor + 1); entries.push({ state, url: new URL(url, entries[cursor].url).href }); cursor++; },
     go(delta) { cursor += delta; },
   };
   return { storage, browser, entries };
@@ -75,3 +76,31 @@ test("reloading the current entry keeps an existing forward branch", () => {
   assert.equal(nav.canForward, true);
   assert.equal(env.entries.length, 2);
 });
+
+for (const page of ["mathreader://local/reader/index.html", "https://courses.example/reader/index.html", "http://127.0.0.1:8000/reader"]) {
+  test("document visits and history keep the loaded reader page: " + page, () => {
+    const env = environment(page);
+    const nav = new ReaderNavigation(env.browser, env.storage, env.storage);
+    const origin = new URL(page);
+    const paths = ["数学笔记/第一课.md", "数学笔记/第二课 % #.md", "数学练习/第三课.md"];
+    for (const [index, path] of paths.entries()) {
+      const kind = index === 2 ? "exercise" : "note";
+      nav.visit({ kind, path, anchor: "定义" }, { top: index });
+      nav.checkpoint({ top: index + 1 });
+      const current = new URL(env.browser.url);
+      assert.equal(current.pathname, origin.pathname);
+      assert.equal(current.protocol, origin.protocol);
+      assert.equal(current.host, origin.host);
+      assert.equal(current.searchParams.get("path"), path);
+      assert.equal(current.searchParams.get("kind"), kind);
+      assert.equal(current.searchParams.get("anchor"), "定义");
+    }
+    env.browser.go(-1);
+    nav.adopt(env.browser.state);
+    nav.checkpoint({ top: 42 });
+    assert.equal(new URL(env.browser.url).pathname, origin.pathname);
+    const restored = new ReaderNavigation(env.browser, env.storage, env.storage);
+    assert.equal(restored.current.path, paths[1]);
+    assert.equal(restored.canForward, true);
+  });
+}

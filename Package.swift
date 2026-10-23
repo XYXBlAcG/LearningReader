@@ -6,14 +6,17 @@ let package = Package(
     platforms: [.macOS(.v13), .iOS(.v18)],
     products: [
         .library(name: "LearningCore", targets: ["LearningCore"]),
+        .library(name: "LocalHTML", targets: ["LocalHTML"]),
         .executable(name: "LearningReader", targets: ["LearningReader"]),
         .executable(name: "course", targets: ["CourseTool"])
     ],
     dependencies: [.package(url: "https://github.com/weichsel/ZIPFoundation.git", exact: "0.9.20")],
     targets: [
         .target(name: "LearningCore", dependencies: ["ZIPFoundation"], resources: [.copy("Resources")]),
+        .target(name: "LocalHTML"),
         .executableTarget(name: "LearningReader", dependencies: ["LearningCore"], path: "Apps", exclude: ["iOS"], sources: ["Shared", "macOS"]),
         .executableTarget(name: "CourseTool", dependencies: ["LearningCore"]),
+        .testTarget(name: "LocalHTMLTests", dependencies: ["LocalHTML"]),
         .testTarget(name: "LearningCoreTests", dependencies: ["LearningCore", "ZIPFoundation"]),
         .testTarget(name: "WorkflowTests", dependencies: ["LearningReader", "LearningCore"])
     ],

@@ -30,10 +30,14 @@ def icons():
 def macos():
     os.environ['CLANG_MODULE_CACHE_PATH'] = str(ROOT / '.build/clang-cache')
     os.environ['SWIFTPM_MODULECACHE_OVERRIDE'] = str(ROOT / '.build/swiftpm-module-cache')
-    command = ['swift', 'build', '-c', 'release', '--disable-sandbox', '--cache-path', str(ROOT / '.build/cache')]
+    command = ['swift', 'build', '-c', 'release', '--arch', 'arm64', '--disable-sandbox', '--cache-path', str(ROOT / '.build/cache')]
     run(*command, '--product', 'LearningReader')
     run(*command, '--product', 'course')
     binary = Path(subprocess.check_output(command + ['--show-bin-path'], cwd=ROOT, text=True).strip())
+    for name in ['LearningReader', 'course']:
+        architecture = subprocess.check_output(['lipo', '-archs', str(binary / name)], text=True).strip()
+        if architecture != 'arm64':
+            raise RuntimeError(f'{name}: expected arm64, got {architecture}')
     staging = ROOT / 'build/知序.app'
     if staging.exists():
         shutil.rmtree(staging)
@@ -47,7 +51,7 @@ def macos():
         shutil.copytree(bundle, resources / bundle.name)
     shutil.copy2(ROOT / 'build/AppIcon.icns', resources / 'AppIcon.icns')
     with (staging / 'Contents/Info.plist').open('wb') as handle:
-        plistlib.dump({'CFBundleName': '知序', 'CFBundleDisplayName': '知序', 'CFBundleIdentifier': 'chatgpt.nice114514.mathreader', 'CFBundleExecutable': 'LearningReader', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': '2', 'CFBundleShortVersionString': '2.0', 'CFBundleIconFile': 'AppIcon', 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True, 'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True}}, handle)
+        plistlib.dump({'CFBundleName': '知序', 'CFBundleDisplayName': '知序', 'CFBundleIdentifier': 'chatgpt.nice114514.mathreader', 'CFBundleExecutable': 'LearningReader', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': '3', 'CFBundleShortVersionString': '2.0.1', 'CFBundleIconFile': 'AppIcon', 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True, 'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True}}, handle)
     run('codesign', '--force', '--deep', '--sign', '-', str(staging))
     run('codesign', '--verify', '--deep', '--strict', str(staging))
     output = ROOT / 'Output'

@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   clients:
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
       - name: Reader checks
         run: node --test Tests/ReaderTests/*.test.cjs
       - name: Core checks
-        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests'
+        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|LocalHTMLTests'
       - name: Course templates
         run: |
           swift run course validate Templates/minimal-course
@@ -58,11 +58,11 @@ jobs:
             build/ipa/SHA256SUMS.txt
           retention-days: 30
       - name: Package macOS
-        run: ditto -c -k --keepParent Output/知序.app build/LearningReader-macOS.zip
+        run: ditto -c -k --keepParent Output/知序.app build/LearningReader-macOS-arm64.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: LearningReader-macOS
-          path: build/LearningReader-macOS.zip
+          name: LearningReader-macOS-arm64
+          path: build/LearningReader-macOS-arm64.zip
           retention-days: 30
       - uses: actions/upload-artifact@v4
         if: failure()

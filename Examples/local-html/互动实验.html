@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HTML 交互实验</title>
+<style>
+body{font:17px system-ui;max-width:42rem;margin:0 auto;padding:28px 20px;line-height:1.7;background:#faf8f2;color:#173b35}button,input{font:inherit;padding:10px 16px;margin:6px 4px 6px 0}button{border:0;border-radius:10px;background:#137b67;color:white}output{display:block;font-size:30px;font-weight:600}input{width:90%}
+</style>
+<h1>HTML 交互实验</h1>
+<p>用按钮改变计数，关闭后从最近阅读再次打开，检查计数是否保留。</p>
+<output id="count"></output>
+<button id="increment">增加一次</button>
+<button id="reset">清零</button>
+<h2>网页对话框</h2>
+<button id="alert">提示</button>
+<button id="confirm">确认</button>
+<button id="prompt">输入</button>
+<p id="result" aria-live="polite"></p>
+<h2>文件内跳转</h2>
+<a href="#end">跳转到页尾</a>
+<div style="height:55vh"></div>
+<h2 id="end">页尾</h2>
+<p>能看到这段文字，说明文件内锚点跳转可用。</p>
+<script>
+let count=Number(localStorage.getItem('demo-count')||0);
+const output=document.getElementById('count');
+output.textContent=count;
+document.getElementById('increment').onclick=()=>{count++;localStorage.setItem('demo-count',count);output.textContent=count};
+document.getElementById('reset').onclick=()=>{count=0;localStorage.setItem('demo-count',count);output.textContent=count};
+document.getElementById('alert').onclick=()=>alert('JavaScript 提示正常');
+document.getElementById('confirm').onclick=()=>{document.getElementById('result').textContent=confirm('确认这次操作？')?'已确认':'已取消'};
+document.getElementById('prompt').onclick=()=>{const text=prompt('输入一段文字','你好');document.getElementById('result').textContent=text===null?'已取消':text};
+</script>
+</html>

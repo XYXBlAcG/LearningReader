@@ -27,6 +27,9 @@ struct CourseLibraryView: View {
                     }.padding(.vertical, 4)
                 }
                 Button("添加课程", systemImage: "plus") { adding = true }
+                #if os(iOS)
+                LocalHTMLSection()
+                #endif
             }
             .navigationTitle("课程仓库")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }

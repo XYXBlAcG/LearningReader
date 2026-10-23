@@ -70,7 +70,7 @@
     url(entry) {
       const params = new URLSearchParams({ kind: entry.kind, path: entry.path });
       if (entry.anchor) params.set("anchor", entry.anchor);
-      return "/reader?" + params.toString();
+      return "?" + params.toString();
     }
   }
 
