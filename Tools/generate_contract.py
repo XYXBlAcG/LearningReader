@@ -12,7 +12,7 @@ def declaration(name, definition):
     lines = [f'public struct {name}: Codable, Sendable {{']
     parameters = []
     for key, value in properties.items():
-        kind = {'string': 'String', 'integer': 'Int', 'array': '[String]'}[value['type']]
+        kind = 'CourseWorkflow' if '$ref' in value else {'string': 'String', 'integer': 'Int', 'array': '[String]'}[value['type']]
         if key == 'sections':
             kind = '[CourseSection]'
         if key == 'kind':
@@ -31,7 +31,7 @@ def declaration(name, definition):
 
 values = ', '.join(schema['$defs']['section']['properties']['kind']['enum'])
 source = 'import Foundation\n\npublic enum DocumentKind: String, Codable, Sendable { case ' + values + ' }\n\n'
-source += declaration('CourseSection', schema['$defs']['section']) + '\n\n' + declaration('CourseManifest', schema) + '\n'
+source += declaration('CourseWorkflow', schema['$defs']['workflow']) + '\n\n' + declaration('CourseSection', schema['$defs']['section']) + '\n\n' + declaration('CourseManifest', schema) + '\n'
 output = ROOT / 'Sources/LearningCore/CourseManifest.swift'
 parser = argparse.ArgumentParser()
 parser.add_argument('--check', action='store_true')

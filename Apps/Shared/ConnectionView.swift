@@ -28,7 +28,7 @@ struct ConnectionView: View {
                             } catch is CancellationError { challenge = nil }
                             catch { challenge = nil; model.issue = error.localizedDescription }
                         }
-                    }.disabled(clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.authenticating)
+                    }.disabled(clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.authenticating || model.syncing)
                     if model.authorized { Button("退出登录，保留离线课程", role: .destructive) { model.signOut() }.disabled(model.authenticating) }
                 }
                 if let challenge {

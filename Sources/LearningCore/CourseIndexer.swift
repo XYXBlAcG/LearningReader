@@ -40,6 +40,9 @@ public enum CourseIndexer {
             catch { throw ReaderError.course("course.json：" + error.localizedDescription) }
         }
         guard manifest.schemaVersion == 1, !manifest.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, CoursePath.valid(manifest.entry), !manifest.sections.isEmpty, manifest.sections.count <= 2, Set(manifest.sections.map(\.kind)).count == manifest.sections.count else { throw ReaderError.course("course.json：版本、标题、入口或课程分组无效。") }
+        if let workflow = manifest.workflow {
+            guard !workflow.title.isEmpty, workflow.program.range(of: "^[A-Za-z][A-Za-z0-9._+-]*$", options: .regularExpression) != nil else { throw ReaderError.course("本地课程工作流名称或程序无效。") }
+        }
         let exclusions = (manifest.exclude ?? []) + configuration.excluding
         guard exclusions.allSatisfy(CoursePath.valid) else { throw ReaderError.course("排除路径必须是课程根目录内的相对路径。") }
         let available = try files(root: root, excluding: exclusions)
@@ -52,6 +55,7 @@ public enum CourseIndexer {
             let paths = available.filter { $0.hasPrefix(prefix) && $0.lowercased().hasSuffix(".md") }
             guard !paths.isEmpty else { throw ReaderError.course("分组没有 Markdown 文件：" + section.path) }
             for path in paths {
+                try Task.checkCancellation()
                 guard seen.insert(path).inserted else { throw ReaderError.course("课程分组重叠：" + path) }
                 guard folded.insert(path.lowercased()).inserted else { throw ReaderError.course("课程文件大小写冲突：" + path) }
                 let url = try CoursePath.file(path, in: root)

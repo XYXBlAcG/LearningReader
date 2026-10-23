@@ -29,6 +29,7 @@ struct ReaderSurface: PlatformReaderView {
     let snapshot: CourseSnapshot
     let sourceID: String
     let legacy: Bool
+    let legacyState: [String: String]
     @ObservedObject var controller: ReaderController
     let onError: (String) -> Void
 
@@ -53,7 +54,8 @@ struct ReaderSurface: PlatformReaderView {
             configuration.userContentController.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
         let identity = "window.READER_SOURCE_ID=" + String(decoding: try! JSONEncoder().encode(sourceID), as: UTF8.self) + ";window.READER_LEGACY=" + (legacy ? "true" : "false") + ";"
-        configuration.userContentController.addUserScript(WKUserScript(source: identity, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        let seed = "window.READER_LEGACY_STATE=" + String(decoding: try! JSONEncoder().encode(legacy ? legacyState : [:]), as: UTF8.self) + ";"
+        configuration.userContentController.addUserScript(WKUserScript(source: identity + seed, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         let web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = context.coordinator
         #if os(iOS)
@@ -103,7 +105,7 @@ struct ReaderSurface: PlatformReaderView {
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping (Any?, String?) -> Void) {
             do {
-                guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader", message.frameInfo.request.url?.host == "local",
+                guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader", message.frameInfo.request.url?.host == "local", message.frameInfo.request.url?.path == "/reader/index.html",
                       let body = message.body as? [String: String], let raw = body["url"], let url = URL(string: raw),
                       url.scheme == "mathreader", url.host == "local" else { throw ReaderError.invalidPath }
                 let file = try snapshot.resource(path: URLComponents(url: url, resolvingAgainstBaseURL: false)!.percentEncodedPath)
@@ -134,7 +136,13 @@ struct ReaderSurface: PlatformReaderView {
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
-            if url.scheme == "mathreader", url.host == "local" { decisionHandler(.allow); return }
+            if url.scheme == "mathreader", url.host == "local" {
+                if navigationAction.targetFrame?.isMainFrame != false && url.path != "/reader/index.html" {
+                    decisionHandler(.cancel)
+                    onError("此文件不能作为独立课程页面打开。请通过正文预览阅读资源；Notebook 和代码文件需要在开发环境中运行。")
+                } else { decisionHandler(.allow) }
+                return
+            }
             if ["https", "http"].contains(url.scheme ?? ""), navigationAction.targetFrame?.isMainFrame != false {
                 #if os(macOS)
                 NSWorkspace.shared.open(url)

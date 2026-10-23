@@ -18,3 +18,11 @@ test('relative and root links resolve against actual indexed documents',()=>{
  assert.deepEqual(resolve('../tasks/a.md',{kind:'note',path:'lessons/a.md'},files),{kind:'exercise',path:'tasks/a.md'});
  assert.equal(resolve('../../../outside.md',{kind:'note',path:'lessons/a.md'},files),null);
 });
+
+test('desktop state seed is imported only into its course once',()=>{
+ const raw=memory();const seed={reader_last:JSON.stringify({kind:'exercise',path:'A.md'}),other:'ignored'};
+ const view=storage(raw,'math',true,seed);
+ assert.equal(JSON.parse(view.getItem('reader_last')).path,'数学练习/A.md');
+ assert.equal(raw.getItem('other'),null);
+ view.removeItem('reader_last');assert.equal(storage(raw,'math',true,seed).getItem('reader_last'),null);
+});

@@ -13,15 +13,25 @@ final class ReaderModel: ObservableObject {
     @Published var issue: String?
     @Published var draft: CourseDraft?
     @Published var preparing = false
+    @Published var workflowRunning = false
+    @Published var workflowLog: String?
     private let client = GitHubClient()
     private let authorization = DeviceAuthorization()
     private let directory: URL
     private var generation = UUID()
     private var lastAttempt = Date.distantPast
     private var started = false
+    private(set) var legacyState: [String: String] = [:]
     private var operation: Task<Void, Never>?
     var selected: CourseSource? { library.sources.first { $0.id == library.selectedID } }
-    var legacyReadingState: Bool { selected?.repositoryID == LegacyMigration.repositoryID }
+    var legacyReadingState: Bool {
+        if selected?.repositoryID == LegacyMigration.repositoryID { return true }
+        #if os(macOS)
+        return selected?.localPath != nil && selected?.localPath == UserDefaults.standard.string(forKey: "learningProject")
+        #else
+        return false
+        #endif
+    }
     private var libraryURL: URL { directory.appendingPathComponent("library.json") }
 
     init() {
@@ -42,12 +52,23 @@ final class ReaderModel: ObservableObject {
                 library.selectedID = migrated.id
                 try library.save(at: libraryURL)
             }
+            #if os(macOS)
+            if let path = UserDefaults.standard.string(forKey: "learningProject") {
+                legacyState = LegacyDesktopState.read(directory: LegacyDesktopState.directory, port: UserDefaults.standard.integer(forKey: "readerPort:" + path))
+                if library.sources.isEmpty, FileManager.default.fileExists(atPath: path) {
+                    let source = CourseSource.local(URL(fileURLWithPath: path), configuration: .standard)
+                    library.sources = [source]
+                    library.selectedID = source.id
+                    try library.save(at: libraryURL)
+                }
+            }
+            #endif
             if let source = selected { await select(source) }
         } catch { issue = error.localizedDescription; status = "准备失败，请重试" }
     }
 
     func signIn(clientID: String, onChallenge: @escaping (DeviceChallenge) -> Void) async throws {
-        guard !authenticating else { return }
+        guard !authenticating, !syncing else { return }
         authenticating = true
         defer { authenticating = false }
         let id = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -100,9 +121,9 @@ final class ReaderModel: ObservableObject {
                 let store = SnapshotStore(directory: sourceDirectory(source))
                 if let local = source.localPath {
                     status = "正在读取本地课程…"
-                    prepared = try await Task.detached(priority: .userInitiated) {
+                    prepared = try await BackgroundWork.run {
                         try store.openLocal(root: URL(fileURLWithPath: local), configuration: source.configuration)
-                    }.value
+                    }
                 } else if let repository = source.repository {
                     status = "正在检查课程更新…"
                     let token = try await accessToken(required: source.isPrivate)
@@ -116,9 +137,9 @@ final class ReaderModel: ObservableObject {
                     try Task.checkCancellation()
                     guard generation == ticket else { return }
                     status = "正在生成目录与知识关联…"
-                    prepared = try await Task.detached(priority: .userInitiated) {
+                    prepared = try await BackgroundWork.run {
                         try store.install(archive: archive, revision: revision, configuration: source.configuration)
-                    }.value
+                    }
                 } else { throw ReaderError.invalidRepository }
                 try Task.checkCancellation()
                 guard generation == ticket, library.selectedID == source.id else { return }
@@ -144,8 +165,12 @@ final class ReaderModel: ObservableObject {
             let metadata: GitHubClient.Metadata
             do { metadata = try await client.metadata(repository: repository) }
             catch {
-                let token = try await accessToken(required: true)
-                metadata = try await client.metadata(repository: repository, token: token)
+                switch error {
+                case ReaderError.authorization, ReaderError.unavailable(404):
+                    let token = try await accessToken(required: true)
+                    metadata = try await client.metadata(repository: repository, token: token)
+                default: throw error
+                }
             }
             let selectedBranch = branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? metadata.default_branch : branch.trimmingCharacters(in: .whitespacesAndNewlines)
             let configuration = ImportConfiguration(root: root.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")), markdown: markdown, excluding: excluding)
@@ -157,7 +182,7 @@ final class ReaderModel: ObservableObject {
             let staging = FileManager.default.temporaryDirectory.appendingPathComponent("course-preview-" + UUID().uuidString)
             var retained = false
             defer { if !retained { try? FileManager.default.removeItem(at: staging) } }
-            let prepared = try await Task.detached(priority: .userInitiated) { try SnapshotStore(directory: staging).install(archive: archive, revision: revision, configuration: configuration) }.value
+            let prepared = try await BackgroundWork.run { try SnapshotStore(directory: staging).install(archive: archive, revision: revision, configuration: configuration) }
             if Task.isCancelled { try? FileManager.default.removeItem(at: staging); return }
             draft = .init(source: source, snapshot: prepared, staging: staging)
             retained = true
@@ -174,7 +199,7 @@ final class ReaderModel: ObservableObject {
             let staging = FileManager.default.temporaryDirectory.appendingPathComponent("course-preview-" + UUID().uuidString)
             var retained = false
             defer { if !retained { try? FileManager.default.removeItem(at: staging) } }
-            let prepared = try await Task.detached(priority: .userInitiated) { try SnapshotStore(directory: staging).openLocal(root: url, configuration: source.configuration) }.value
+            let prepared = try await BackgroundWork.run { try SnapshotStore(directory: staging).openLocal(root: url, configuration: source.configuration) }
             if Task.isCancelled { try? FileManager.default.removeItem(at: staging); return }
             draft = .init(source: source, snapshot: prepared, staging: staging)
             retained = true
@@ -218,6 +243,16 @@ final class ReaderModel: ObservableObject {
             else if updated.isEmpty { status = "添加课程，开始学习" }
         } catch { issue = error.localizedDescription }
     }
+
+    #if os(macOS)
+    func runWorkflow() async {
+        guard selected?.localPath != nil, let snapshot, let workflow = snapshot.course.manifest.workflow, !workflowRunning else { return }
+        workflowRunning = true
+        defer { workflowRunning = false }
+        do { workflowLog = try await LocalWorkflow.run(workflow, root: snapshot.course.root) }
+        catch { workflowLog = error.localizedDescription }
+    }
+    #endif
 
     private func sourceDirectory(_ source: CourseSource) -> URL { directory.appendingPathComponent("courses/" + source.id) }
 

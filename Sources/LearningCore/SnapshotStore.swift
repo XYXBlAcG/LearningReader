@@ -34,6 +34,7 @@ public struct CourseSnapshot: Identifiable, Sendable {
 }
 
 public final class SnapshotStore: @unchecked Sendable {
+    private static let installationLock = NSLock()
     public let directory: URL
     public init(directory: URL) { self.directory = directory }
 
@@ -48,6 +49,9 @@ public final class SnapshotStore: @unchecked Sendable {
     }
 
     public func install(archive: URL, revision: String, configuration: ImportConfiguration) throws -> CourseSnapshot {
+        Self.installationLock.lock()
+        defer { Self.installationLock.unlock() }
+        try Task.checkCancellation()
         guard Self.validRevision(revision) else { throw ReaderError.invalidSnapshot }
         let zip = try Archive(url: archive, accessMode: .read)
         var roots = Set<String>(), names = Set<String>(), total: UInt64 = 0
@@ -79,6 +83,7 @@ public final class SnapshotStore: @unchecked Sendable {
             try FileManager.default.moveItem(at: prepared, to: destination)
         }
         let record = SnapshotRecord(revision: revision, configuration: configuration)
+        try Task.checkCancellation()
         try JSONEncoder().encode(record).write(to: directory.appendingPathComponent("current.json"), options: .atomic)
         let keep = Set([revision, previous].compactMap { $0 })
         for cached in try FileManager.default.contentsOfDirectory(at: versions, includingPropertiesForKeys: nil) where Self.validRevision(cached.lastPathComponent) && !keep.contains(cached.lastPathComponent) {
@@ -89,7 +94,11 @@ public final class SnapshotStore: @unchecked Sendable {
     }
 
     public func openLocal(root: URL, configuration: ImportConfiguration) throws -> CourseSnapshot {
+        Self.installationLock.lock()
+        defer { Self.installationLock.unlock() }
+        try Task.checkCancellation()
         let course = try CourseIndexer.build(root: root, configuration: configuration)
+        try Task.checkCancellation()
         let derived = directory.appendingPathComponent("local-derived")
         try Self.writeDerived(course: course, to: derived)
         return .init(revision: UUID().uuidString, root: root, course: course, derived: derived)

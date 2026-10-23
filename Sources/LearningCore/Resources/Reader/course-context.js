@@ -24,9 +24,10 @@
     }
     return null;
   }
-  function storage(raw,source,legacy=false){
+  function storage(raw,source,legacy=false,seed={}){
     const prefix='course:'+source+':';
     if(legacy&&raw.getItem(prefix+'migrated')===null){
+      for(const [key,value] of Object.entries(seed))if(key.startsWith('reader_')&&raw.getItem(key)===null)raw.setItem(key,value);
       const roots={note:'数学笔记/',exercise:'数学练习/'};
       const transform=value=>{
         if(Array.isArray(value))return value.map(transform);

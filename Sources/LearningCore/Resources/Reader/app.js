@@ -1,5 +1,5 @@
 "use strict";
-const readerStorage=ReaderCourseContext.storage(window.localStorage,window.READER_SOURCE_ID||'standalone',window.READER_LEGACY===true);
+const readerStorage=ReaderCourseContext.storage(window.localStorage,window.READER_SOURCE_ID||'standalone',window.READER_LEGACY===true,window.READER_LEGACY_STATE||{});
 const readerSessionStorage=ReaderCourseContext.storage(window.sessionStorage,window.READER_SOURCE_ID||'standalone');
 
 const $ = (id) => document.getElementById(id);

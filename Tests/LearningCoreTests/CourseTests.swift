@@ -1,5 +1,8 @@
 import XCTest
 import ZIPFoundation
+#if os(macOS)
+import SQLite3
+#endif
 @testable import LearningCore
 
 final class CourseTests: XCTestCase {
@@ -48,6 +51,26 @@ final class CourseTests: XCTestCase {
         }
     }
 
+    func testCancelledBackgroundInstallCannotReplaceCurrentSnapshot() async throws {
+        let root = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let zip = root.appendingPathComponent("course.zip")
+        try FileManager.default.zipItem(at: root.appendingPathComponent("lessons"), to: zip)
+        let store = SnapshotStore(directory: root.appendingPathComponent("store"))
+        let configuration = ImportConfiguration.markdown(root: "", excluding: [])
+        let original = try store.install(archive: zip, revision: String(repeating: "a", count: 40), configuration: configuration)
+        let cancelled = Task {
+            try await BackgroundWork.run {
+                Thread.sleep(forTimeInterval: 0.05)
+                return try store.install(archive: zip, revision: String(repeating: "b", count: 40), configuration: configuration)
+            }
+        }
+        cancelled.cancel()
+        do { _ = try await cancelled.value; XCTFail("Cancelled installation succeeded") }
+        catch is CancellationError { }
+        XCTAssertEqual(try store.current()?.revision, original.revision)
+    }
+
     func testSourcesKeepStableIndependentIdentity() throws {
         let a = CourseSource.remote(repository: try Repository("a/course"), repositoryID: 1, branch: "main", configuration: .standard)
         let b = CourseSource.remote(repository: try Repository("b/course"), repositoryID: 2, branch: "main", configuration: .standard)
@@ -56,6 +79,25 @@ final class CourseTests: XCTestCase {
         XCTAssertEqual(a.id, renamed.id)
         XCTAssertNotEqual(a.id, CourseSource.remote(repository: try Repository("a/course"), repositoryID: 1, branch: "draft", configuration: .standard).id)
     }
+
+    #if os(macOS)
+    func testDesktopMigrationReadsOnlyMatchingOriginAndReaderKeys() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let directory = root.appendingPathComponent("origin/LocalStorage")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var origin = Data([4, 0, 0, 0, 1])
+        origin.append(Data("http".utf8)); origin.append(contentsOf: [9, 0, 0, 0, 1])
+        origin.append(Data("127.0.0.1".utf8)); origin.append(contentsOf: [1, 80, 0]); origin.append(origin)
+        try origin.write(to: directory.deletingLastPathComponent().appendingPathComponent("origin"))
+        var database: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(directory.appendingPathComponent("localstorage.sqlite3").path, &database), SQLITE_OK)
+        defer { sqlite3_close(database) }
+        XCTAssertEqual(sqlite3_exec(database, "CREATE TABLE ItemTable(key TEXT, value BLOB); INSERT INTO ItemTable VALUES('reader_zoom', X'3100'); INSERT INTO ItemTable VALUES('other', X'3200');", nil, nil, nil), SQLITE_OK)
+        XCTAssertEqual(LegacyDesktopState.read(directory: root, port: 80), ["reader_zoom": "1"])
+        XCTAssertTrue(LegacyDesktopState.read(directory: root, port: 81).isEmpty)
+    }
+    #endif
 
     private func fixture() throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

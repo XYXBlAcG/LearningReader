@@ -25,7 +25,7 @@ struct CourseTool {
             guard ["validate", "export", "index"].contains(command) else { throw ReaderError.course("未知命令：" + command) }
             let course = try CourseIndexer.build(root: url, configuration: configuration)
             if command == "index" {
-                var result: [String: Any] = [:]
+                var result: [String: Any] = ["manifest": try JSONSerialization.jsonObject(with: JSONEncoder().encode(course.manifest)), "redirects": try JSONSerialization.jsonObject(with: course.redirects), "media": course.media.sorted()]
                 for (name, key) in [("index.json", "files"), ("graph.json", "graph"), ("search-index.json", "search")] {
                     result[key] = try JSONSerialization.jsonObject(with: course.indices[name]!)
                 }

@@ -2,6 +2,18 @@ import Foundation
 
 public enum DocumentKind: String, Codable, Sendable { case note, exercise }
 
+public struct CourseWorkflow: Codable, Sendable {
+    public let title: String
+    public let program: String
+    public let arguments: [String]
+    public static let propertyNames: Set<String> = ["title", "program", "arguments"]
+    public init(title: String, program: String, arguments: [String]) {
+        self.title = title
+        self.program = program
+        self.arguments = arguments
+    }
+}
+
 public struct CourseSection: Codable, Sendable {
     public let kind: DocumentKind
     public let path: String
@@ -22,8 +34,9 @@ public struct CourseManifest: Codable, Sendable {
     public let assets: [String]
     public let exclude: [String]?
     public let redirects: String?
-    public static let propertyNames: Set<String> = ["schemaVersion", "title", "entry", "sections", "assets", "exclude", "redirects"]
-    public init(schemaVersion: Int, title: String, entry: String, sections: [CourseSection], assets: [String], exclude: [String]? = nil, redirects: String? = nil) {
+    public let workflow: CourseWorkflow?
+    public static let propertyNames: Set<String> = ["schemaVersion", "title", "entry", "sections", "assets", "exclude", "redirects", "workflow"]
+    public init(schemaVersion: Int, title: String, entry: String, sections: [CourseSection], assets: [String], exclude: [String]? = nil, redirects: String? = nil, workflow: CourseWorkflow? = nil) {
         self.schemaVersion = schemaVersion
         self.title = title
         self.entry = entry
@@ -31,5 +44,6 @@ public struct CourseManifest: Codable, Sendable {
         self.assets = assets
         self.exclude = exclude
         self.redirects = redirects
+        self.workflow = workflow
     }
 }
