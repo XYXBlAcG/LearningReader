@@ -25,7 +25,7 @@ public enum CourseIndexer {
         if configuration.root.isEmpty { root = repository.standardizedFileURL.resolvingSymlinksInPath() }
         else { root = try CoursePath.file(configuration.root, in: repository).standardizedFileURL.resolvingSymlinksInPath() }
         let manifestURL = root.appendingPathComponent("course.json")
-        let manifest: CourseManifest
+        var manifest: CourseManifest
         if configuration.markdown {
             let paths = try files(root: root, excluding: configuration.excluding).filter { $0.lowercased().hasSuffix(".md") }
             guard let first = paths.first else { throw ReaderError.course("所选目录没有可阅读的 Markdown 文件。") }
@@ -85,6 +85,9 @@ public enum CourseIndexer {
         let input = try JSONEncoder().encode(documents)
         guard context.exception == nil, let output = context.objectForKeyedSubscript("ReaderContentIndex")?.forProperty("buildJSON")?.call(withArguments: [String(decoding: input, as: UTF8.self)])?.toString(), context.exception == nil,
               let data = output.data(using: .utf8), let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ReaderError.invalidIndex }
+        if configuration.markdown, let files = (object["files"] as? [String: Any])?["notes"] as? [[String: String]], let title = files.first(where: { $0["path"] == manifest.entry })?["label"], !title.isEmpty {
+            manifest = CourseManifest(schemaVersion: 1, title: title, entry: manifest.entry, sections: manifest.sections, assets: manifest.assets, exclude: manifest.exclude)
+        }
         var indices: [String: Data] = [:]
         for (key, name) in [("files", "index.json"), ("graph", "graph.json"), ("search", "search-index.json")] {
             guard let value = object[key] else { throw ReaderError.invalidIndex }

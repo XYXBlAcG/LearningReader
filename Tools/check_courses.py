@@ -56,6 +56,7 @@ class CourseChecks(unittest.TestCase):
             result = self.run_course('validate', root, '--markdown')
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('1 篇文章', result.stdout)
+            self.assertIn('Course', result.stdout)
 
     def test_manifest_rejects_missing_entry_and_escaping_assets(self):
         with tempfile.TemporaryDirectory() as temporary:

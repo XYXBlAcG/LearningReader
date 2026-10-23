@@ -21,6 +21,7 @@ final class CourseTests: XCTestCase {
         let course = try CourseIndexer.build(root: root, configuration: .markdown(root: "lessons", excluding: []))
         XCTAssertEqual(Set(course.documents.map(\.path)), ["one.md"])
         XCTAssertEqual(course.manifest.entry, "one.md")
+        XCTAssertEqual(course.manifest.title, "入门")
     }
 
     func testArchiveInstallationIsAtomicAndRepositoryScoped() throws {

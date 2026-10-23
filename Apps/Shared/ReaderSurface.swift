@@ -105,7 +105,7 @@ struct ReaderSurface: PlatformReaderView {
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping (Any?, String?) -> Void) {
             do {
-                guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader", message.frameInfo.request.url?.host == "local", message.frameInfo.request.url?.path == "/reader/index.html",
+                guard message.webView === controller.webView, message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader", message.frameInfo.request.url?.host == "local", message.frameInfo.request.url?.path == "/reader/index.html",
                       let body = message.body as? [String: String], let raw = body["url"], let url = URL(string: raw),
                       url.scheme == "mathreader", url.host == "local" else { throw ReaderError.invalidPath }
                 let file = try snapshot.resource(path: URLComponents(url: url, resolvingAgainstBaseURL: false)!.percentEncodedPath)
@@ -118,7 +118,7 @@ struct ReaderSurface: PlatformReaderView {
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader",
+            guard message.webView === controller.webView, message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader",
                   message.frameInfo.request.url?.host == "local", message.frameInfo.request.url?.path == "/reader/index.html",
                   let body = message.body as? [String: Any], body["type"] as? String == "state",
                   let raw = body["state"], let data = try? JSONSerialization.data(withJSONObject: raw),
@@ -127,10 +127,12 @@ struct ReaderSurface: PlatformReaderView {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard webView === controller.webView else { return }
             webView.evaluateJavaScript("window.MathReaderBridge?.connect()")
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            guard webView === controller.webView else { return }
             if (error as NSError).code != NSURLErrorCancelled { onError(error.localizedDescription) }
         }
 
