@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>知序</title>
+<link rel="icon" href="data:,📐">
+<link rel="stylesheet" href="/reader/style.css">
+<link rel="stylesheet" href="/reader/vendor/highlight/styles/github.min.css">
+<script src="/reader/math-config.js"></script>
+<body>
+
+<aside id="sidebar" aria-label="文件列表">
+  <div class="sidebar-head">
+    <span class="logo">📐</span>
+    <span class="app-name">知序</span>
+    <button id="sidebarClose" class="icon-btn" title="关闭侧栏" aria-label="关闭侧栏">✕</button>
+  </div>
+  <div class="search-box">
+    <input id="searchInput" type="search" placeholder="搜索概念、标题或正文…" autocomplete="off" spellcheck="false"
+           aria-label="搜索概念、标题或正文" aria-controls="groups">
+  </div>
+  <div class="sidebar-actions" aria-label="目录展开控制">
+    <button id="expandAll" class="text-btn" type="button">全部展开</button>
+    <button id="collapseAll" class="text-btn" type="button">全部收起</button>
+  </div>
+  <nav id="groups"></nav>
+</aside>
+<div id="mask" role="presentation"></div>
+
+<main id="main">
+  <div id="readingProgress" aria-hidden="true"><span></span></div>
+  <header id="topbar">
+    <button id="sidebarToggle" class="icon-btn" title="打开/关闭侧栏" aria-label="侧栏">☰</button>
+    <div id="crumb">欢迎使用阅读器</div>
+    <button id="counterpartBtn" class="chip-btn" hidden></button>
+    <button id="pinFileBtn" class="icon-btn" title="置顶当前课程（Shift+P）"
+            aria-label="置顶当前课程" aria-pressed="false" disabled>📌</button>
+    <div class="spacer"></div>
+    <div class="topbar-right">
+      <button id="backPage" class="icon-btn nav-btn" title="返回（⌘/⌥ + ←）" aria-label="返回" disabled>←</button>
+      <button id="forwardPage" class="icon-btn nav-btn" title="前进（⌘/⌥ + →）" aria-label="前进" disabled>→</button>
+      <button id="historyToggle" class="chip-btn" type="button" popovertarget="historyPanel">历史</button>
+      <section id="historyPanel" class="reader-history" popover="auto" aria-label="阅读历史">
+        <div class="history-head"><span>阅读历史</span><button id="clearHistory" class="text-btn" type="button">清空</button></div>
+        <input id="historySearch" type="search" placeholder="搜索历史文档…" aria-label="搜索阅读历史">
+        <div id="historyList"></div>
+      </section>
+      <button id="settingsToggle" class="chip-btn" type="button" popovertarget="settingsPanel" aria-label="阅读设置">设置</button>
+      <div id="settingsPanel" class="reader-settings" popover="auto" aria-label="阅读设置">
+      <div class="settings-title">阅读设置</div>
+      <div class="settings-row"><span>章节顺序</span><div><button id="prevFile" class="icon-btn nav-btn" title="上一篇（[）" aria-label="上一篇">←</button><button id="nextFile" class="icon-btn nav-btn" title="下一篇（]）" aria-label="下一篇">→</button></div></div>
+      <div class="settings-row"><span>三维预览</span><button id="previewToggle" class="chip-btn" type="button" aria-pressed="false">三维预览</button></div>
+      <div class="settings-row"><span>本页目录</span><button id="outlineToggle" class="chip-btn" title="显示/隐藏本页目录" aria-label="本页目录">开关</button></div>
+      <div class="settings-row"><span>正文缩放</span><div class="zoom" title="内容缩放（Ctrl/Cmd + 滚轮）">
+        <button id="zoomOut" class="icon-btn" aria-label="缩小">−</button>
+        <span id="zoomVal">100%</span>
+        <button id="zoomIn" class="icon-btn" aria-label="放大">＋</button>
+      </div></div>
+      <div class="settings-row"><span>沉浸阅读</span><button id="immersiveToggle" class="chip-btn" title="沉浸式阅读（Esc 退出）" aria-label="沉浸式阅读">开关</button></div>
+      <details id="shortcutsPanel" class="shortcuts-panel">
+        <summary>快捷键</summary>
+        <div class="shortcut-row"><span>上一篇 / 下一篇</span><span><kbd>[</kbd> <kbd>]</kbd></span></div>
+        <div class="shortcut-row"><span>返回 / 前进</span><span><kbd>⌘/⌥</kbd> + <kbd>←</kbd> <kbd>→</kbd></span></div>
+        <div class="shortcut-row"><span>向上 / 向下阅读</span><span><kbd>K</kbd> <kbd>J</kbd></span></div>
+        <div class="shortcut-row"><span>搜索概念与正文</span><kbd>/</kbd></div>
+        <div class="shortcut-row"><span>对应笔记或题目</span><kbd>P</kbd></div>
+        <div class="shortcut-row"><span>置顶 / 取消置顶</span><span><kbd>Shift</kbd> + <kbd>P</kbd></span></div>
+        <div class="shortcut-row"><span>开关侧栏</span><kbd>B</kbd></div>
+        <div class="shortcut-row"><span>开关本页目录</span><kbd>T</kbd></div>
+        <div class="shortcut-row"><span>知识图谱</span><kbd>G</kbd></div>
+        <div class="shortcut-row"><span>沉浸式阅读</span><kbd>F</kbd></div>
+        <div class="shortcut-row"><span>退出 / 关闭面板</span><kbd>Esc</kbd></div>
+      </details>
+      </div>
+    </div>
+  </header>
+
+  <div id="readerBody">
+    <article id="article" aria-live="polite">
+      <div class="prose"><p class="loading">加载中…</p></div>
+    </article>
+    <aside id="outline" aria-label="阅读辅助栏">
+      <div id="outlineResize" role="separator" tabindex="0" aria-label="调整右侧栏宽度"
+           aria-orientation="vertical" aria-valuemin="280" aria-valuemax="720"></div>
+      <div class="outline-tabs" role="tablist" aria-label="阅读辅助">
+        <button id="outlineTab" class="outline-tab active" role="tab" aria-selected="true">本页目录</button>
+        <button id="graphTab" class="outline-tab" role="tab" aria-selected="false">知识关联</button>
+      </div>
+      <section id="outlinePanel" class="outline-panel" role="tabpanel">
+        <nav id="outlineList"></nav>
+      </section>
+      <section id="graphPanel" class="outline-panel graph-panel" role="tabpanel" hidden>
+        <div class="graph-toolbar">
+          <span>点击节点跳转</span>
+          <button id="graphMode" class="text-btn" type="button" aria-pressed="false">显示全局</button>
+        </div>
+        <div id="graphCanvas" aria-label="知识关联"></div>
+        <div id="graphEmpty" class="graph-empty" hidden>本页还没有知识连接</div>
+        <div class="graph-links">
+          <h2>本页链接到</h2>
+          <div id="graphOutgoing"></div>
+          <h2>提到本页</h2>
+          <div id="graphIncoming"></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<button id="exitImmersive" class="icon-btn" title="退出沉浸式（Esc）" aria-label="退出沉浸式">✕</button>
+
+<script src="/reader/vendor/marked.min.js"></script>
+<script src="/reader/vendor/turndown-7.2.2.js"></script>
+<script src="/reader/vendor/turndown-plugin-gfm-1.0.2.js"></script>
+<script src="/reader/selection-copy.js"></script>
+<script src="/reader/vendor/highlight/highlight.min.js"></script>
+<script src="/reader/vendor/cytoscape.min.js"></script>
+<script src="/reader/code-blocks.js"></script>
+<script src="/reader/exercise-copy.js"></script>
+<script src="/reader/knowledge-graph.js"></script>
+<script src="/reader/search.js"></script>
+<script src="/reader/vendor/mathjax/tex-svg.js" defer></script>
+<script src="/reader/vendor/purify.min.js"></script>
+<script src="/reader/config.js"></script>
+<script src="/reader/course-context.js"></script>
+<script src="/reader/data-source.js"></script>
+<script src="/reader/sidebar-tree.js"></script>
+<script src="/reader/pinned-files.js"></script>
+<script src="/reader/navigation.js"></script>
+<script src="/reader/host-bridge.js"></script>
+<script src="/reader/problem-previews.js"></script>
+<script src="/reader/preview-preference.js"></script>
+<script src="/reader/app.js"></script>
+</body>
+</html>

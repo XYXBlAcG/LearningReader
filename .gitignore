@@ -1,0 +1,9 @@
+.DS_Store
+.tmp/
+.build/
+build/
+Output/
+*.xcodeproj/
+*.ipa
+*.dSYM/
+Apps/iOS/Assets.xcassets/

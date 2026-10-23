@@ -1,0 +1,69 @@
+name: Clients
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: clients-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  clients:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Course contract
+        run: python3 Tools/generate_contract.py --check
+      - name: Reader checks
+        run: node --test Tests/ReaderTests/*.test.cjs
+      - name: Core checks
+        run: swift test --filter 'CourseTests|GitHubTests'
+      - name: Course templates
+        run: |
+          swift run course validate Templates/minimal-course
+          swift run course validate Templates/machine-learning-course
+      - name: Build macOS app
+        run: python3 Tools/build.py macos
+      - name: Real course checks
+        run: python3 Tools/check_courses.py
+      - name: Generate iOS project
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec Apps/iOS/project.yml
+      - name: Build iOS app
+        run: |
+          xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/iOS CODE_SIGNING_ALLOWED=NO build > build/ios-build.log 2>&1 || { tail -160 build/ios-build.log; exit 1; }
+      - name: Package
+        run: |
+          mkdir -p build/ipa/Payload
+          cp -R build/iOS/Build/Products/Release-iphoneos/LearningReader.app build/ipa/Payload/
+          test -d build/ipa/Payload/LearningReader.app/LearningReader_LearningCore.bundle
+          cd build/ipa
+          ditto -c -k --keepParent Payload LearningReader-unsigned.ipa
+          shasum -a 256 LearningReader-unsigned.ipa > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LearningReader-iOS
+          path: |
+            build/ipa/LearningReader-unsigned.ipa
+            build/ipa/SHA256SUMS.txt
+          retention-days: 30
+      - name: Package macOS
+        run: ditto -c -k --keepParent Output/知序.app build/LearningReader-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LearningReader-macOS
+          path: build/LearningReader-macOS.zip
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-log
+          path: build/ios-build.log
+          if-no-files-found: ignore

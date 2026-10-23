@@ -1,0 +1,12 @@
+window.MathJax={
+  tex:{
+    inlineMath:[['$','$'],['\\(','\\)']],
+    displayMath:[['$$','$$'],['\\[','\\]']],
+    processEscapes:true,
+    tags:'none',
+    macros:{boldsymbol:['\\mathbf{#1}',1]}
+  },
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']},
+  svg:{fontCache:'global'},
+  startup:{typeset:false}
+};

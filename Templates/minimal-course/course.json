@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "title": "最小课程",
+  "entry": "README.md",
+  "sections": [
+    {
+      "kind": "note",
+      "path": "lessons",
+      "title": "课程"
+    },
+    {
+      "kind": "exercise",
+      "path": "exercises",
+      "title": "练习"
+    }
+  ],
+  "assets": []
+}
