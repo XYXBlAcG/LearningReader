@@ -23,7 +23,7 @@ jobs:
       - name: Reader checks
         run: node --test Tests/ReaderTests/*.test.cjs
       - name: Core checks
-        run: swift test --filter 'CourseTests|GitHubTests'
+        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests'
       - name: Course templates
         run: |
           swift run course validate Templates/minimal-course

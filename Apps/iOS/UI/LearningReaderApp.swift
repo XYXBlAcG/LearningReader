@@ -20,7 +20,6 @@ struct LearningView: View {
     @State private var courses = false
     @State private var settings = false
     @State private var history = false
-    @State private var confirmWorkflow = false
 
     var body: some View {
         NavigationStack {
@@ -61,11 +60,6 @@ struct LearningView: View {
                         Section {
                             Button("刷新课程", systemImage: "arrow.clockwise") { model.sync() }.disabled(model.syncing || model.selected == nil)
                             Button("课程仓库", systemImage: "books.vertical") { courses = true }
-                            #if os(macOS)
-                            if model.selected?.localPath != nil, let workflow = model.snapshot?.course.manifest.workflow {
-                                Button(workflow.title, systemImage: "terminal") { confirmWorkflow = true }.disabled(model.workflowRunning)
-                            }
-                            #endif
                             Button("GitHub 设置", systemImage: "gearshape") { settings = true }
                         }
                     } label: { Image(systemName: "ellipsis.circle") }.help("阅读与同步设置")
@@ -82,19 +76,6 @@ struct LearningView: View {
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
             .sheet(isPresented: $settings) { ConnectionView(model: model) }
             .sheet(isPresented: $history) { ReadingHistoryView(reader: reader) }
-            #if os(macOS)
-            .confirmationDialog(model.snapshot?.course.manifest.workflow?.title ?? "运行课程工作流", isPresented: $confirmWorkflow) {
-                Button("运行") { Task { await model.runWorkflow() } }
-            } message: {
-                if let workflow = model.snapshot?.course.manifest.workflow { Text(([workflow.program] + workflow.arguments).joined(separator: " ")) }
-            }
-            .sheet(isPresented: Binding(get: { model.workflowLog != nil }, set: { if !$0 { model.workflowLog = nil } })) {
-                VStack {
-                    ScrollView { Text(model.workflowLog ?? "").font(.system(.caption, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
-                    Button("完成") { model.workflowLog = nil }
-                }.padding().frame(minWidth: 520, minHeight: 360)
-            }
-            #endif
             .alert("知序", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) {
                 Button("知道了") { model.issue = nil }
             } message: { Text(model.issue ?? "") }

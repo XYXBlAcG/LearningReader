@@ -12,9 +12,10 @@ let package = Package(
     dependencies: [.package(url: "https://github.com/weichsel/ZIPFoundation.git", exact: "0.9.20")],
     targets: [
         .target(name: "LearningCore", dependencies: ["ZIPFoundation"], resources: [.copy("Resources")]),
-        .executableTarget(name: "LearningReader", dependencies: ["LearningCore"], path: "Apps/Shared"),
+        .executableTarget(name: "LearningReader", dependencies: ["LearningCore"], path: "Apps", exclude: ["iOS"], sources: ["Shared", "macOS"]),
         .executableTarget(name: "CourseTool", dependencies: ["LearningCore"]),
-        .testTarget(name: "LearningCoreTests", dependencies: ["LearningCore", "ZIPFoundation"])
+        .testTarget(name: "LearningCoreTests", dependencies: ["LearningCore", "ZIPFoundation"]),
+        .testTarget(name: "WorkflowTests", dependencies: ["LearningReader", "LearningCore"])
     ],
     swiftLanguageModes: [.v5]
 )

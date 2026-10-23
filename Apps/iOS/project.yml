@@ -17,6 +17,7 @@ targets:
     type: application
     platform: iOS
     sources:
+      - path: UI
       - path: ../Shared
       - path: Assets.xcassets
     dependencies:

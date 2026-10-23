@@ -249,7 +249,8 @@ final class ReaderModel: ObservableObject {
         guard selected?.localPath != nil, let snapshot, let workflow = snapshot.course.manifest.workflow, !workflowRunning else { return }
         workflowRunning = true
         defer { workflowRunning = false }
-        do { workflowLog = try await LocalWorkflow.run(workflow, root: snapshot.course.root) }
+        workflowLog = nil
+        do { try await LocalWorkflow.run(workflow, root: snapshot.course.root) { [weak self] in self?.workflowLog = $0 } }
         catch { workflowLog = error.localizedDescription }
     }
     #endif
