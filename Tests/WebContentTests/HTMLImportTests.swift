@@ -1,7 +1,7 @@
 import XCTest
-@testable import LocalHTML
+@testable import WebContent
 
-final class LocalHTMLTests: XCTestCase {
+final class HTMLImportTests: XCTestCase {
     func testSingleFileIsCopiedAndSurvivesOriginalRemoval() throws {
         let root = temporary()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -83,4 +83,58 @@ final class LocalHTMLTests: XCTestCase {
     }
 
     private func temporary() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString) }
+}
+
+extension HTMLImportTests {
+    func testStagingIdentityUsesActualPathInsteadOfURLRepresentation() throws {
+        let root = URL(fileURLWithPath: "/tmp/local-html-" + UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let file = root.appendingPathComponent("中文 %.html")
+        try Data("<h1>Valid</h1>".utf8).write(to: file)
+        let store = LocalHTMLStore(directory: root.appendingPathComponent("Application Support/LocalHTML", isDirectory: true))
+        let draft = try store.prepare(source: file)
+        let link = root.appendingPathComponent("library-alias", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: store.directory)
+        let alias = HTMLImportDraft(id: draft.id, directory: link.appendingPathComponent(draft.directory.lastPathComponent, isDirectory: true), entries: draft.entries)
+        let document = try store.accept(alias, entry: alias.entries[0])
+        XCTAssertEqual(try String(contentsOf: store.fileURL(for: document), encoding: .utf8), "<h1>Valid</h1>")
+        let cancelled = try store.prepare(source: file)
+        try store.discard(HTMLImportDraft(id: cancelled.id, directory: cancelled.directory.resolvingSymlinksInPath(), entries: cancelled.entries))
+        XCTAssertEqual(try store.recent()?.id, document.id)
+    }
+
+    func testForeignStagingDirectoryIsRejectedWithoutRemovingEitherImport() throws {
+        let root = temporary()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let file = root.appendingPathComponent("index.html")
+        try Data("<h1>Valid</h1>".utf8).write(to: file)
+        let a = LocalHTMLStore(directory: root.appendingPathComponent("a"))
+        let b = LocalHTMLStore(directory: root.appendingPathComponent("b"))
+        let draft = try a.prepare(source: file)
+        XCTAssertThrowsError(try b.accept(draft, entry: "index.html"))
+        XCTAssertThrowsError(try b.discard(draft))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: draft.directory.path))
+        XCTAssertNil(try b.recent())
+    }
+}
+
+
+extension HTMLImportTests {
+    func testActivationFailureRestoresDraftAndKeepsPreviousRecord() throws {
+        let root = temporary()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let file = root.appendingPathComponent("index.html")
+        try Data("<h1>Valid</h1>".utf8).write(to: file)
+        let store = LocalHTMLStore(directory: root.appendingPathComponent("library"))
+        let original = try store.accept(store.prepare(source: file), entry: "index.html")
+        let broken = try store.prepare(source: file)
+        try FileManager.default.removeItem(at: broken.directory.appendingPathComponent("content/index.html"))
+        XCTAssertThrowsError(try store.accept(broken, entry: "index.html"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: broken.directory.path))
+        XCTAssertEqual(try store.recent()?.id, original.id)
+        try store.discard(broken)
+    }
 }

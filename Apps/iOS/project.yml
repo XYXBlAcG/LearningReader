@@ -7,8 +7,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     CODE_SIGNING_ALLOWED: NO
-    MARKETING_VERSION: "2.1"
-    CURRENT_PROJECT_VERSION: "4"
+    MARKETING_VERSION: "2.2"
+    CURRENT_PROJECT_VERSION: "5"
 packages:
   LearningCore:
     path: ../..
@@ -16,16 +16,21 @@ targets:
   LearningReader:
     type: application
     platform: iOS
+    info:
+      path: Generated-Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsInWebContent: true
     sources:
       - path: UI
-      - path: HTML
+      - path: Web
       - path: ../Shared
       - path: Assets.xcassets
     dependencies:
       - package: LearningCore
         product: LearningCore
       - package: LearningCore
-        product: LocalHTML
+        product: WebContent
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chatgpt.nice114514.MathLearning

@@ -14,12 +14,13 @@ public struct HTMLImportDraft: Identifiable, Sendable {
 }
 
 public enum LocalHTMLError: LocalizedError {
-    case noHTML, invalidFile, invalidDraft, unavailable
+    case noHTML, invalidFile, unavailable
+    case invalidDraft(String)
     public var errorDescription: String? {
         switch self {
         case .noHTML: return "所选文件夹中没有 HTML 文件。"
         case .invalidFile: return "请选择 HTML/HTM 文件或完整网页文件夹，文件不能包含符号链接。"
-        case .invalidDraft: return "网页导入记录无效，请重新选择文件。"
+        case .invalidDraft(let detail): return "网页导入记录无效。\n" + detail
         case .unavailable: return "无法读取所选文件，请确认文件已下载并重新选择。"
         }
     }
@@ -84,25 +85,28 @@ public struct LocalHTMLStore: Sendable {
     }
 
     public func accept(_ draft: HTMLImportDraft, entry: String) throws -> HTMLDocument {
-        guard draft.directory.standardizedFileURL == directory.appendingPathComponent(".staging-" + draft.id.uuidString), draft.entries.contains(entry), Self.valid(entry) else { throw LocalHTMLError.invalidDraft }
+        let staging = try stagingDirectory(for: draft)
+        guard draft.entries.contains(entry), Self.valid(entry) else { throw LocalHTMLError.invalidDraft("所选入口不属于当前导入：" + entry) }
         let previous = try recent()
         let document = HTMLDocument(id: draft.id, entry: entry, openedAt: Date())
         let destination = rootURL(for: document).deletingLastPathComponent()
         try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try FileManager.default.moveItem(at: draft.directory, to: destination)
+        try FileManager.default.moveItem(at: staging, to: destination)
         do {
             _ = try fileURL(for: document)
             try JSONEncoder().encode(document).write(to: recordURL, options: .atomic)
         } catch {
-            try? FileManager.default.removeItem(at: destination)
-            throw error
+            let original = error
+            do { try FileManager.default.moveItem(at: destination, to: staging) }
+            catch { throw LocalHTMLError.invalidDraft("恢复暂存目录失败。\n" + original.localizedDescription + "\n" + error.localizedDescription) }
+            throw original
         }
         if let previous { try? FileManager.default.removeItem(at: rootURL(for: previous).deletingLastPathComponent()) }
         return document
     }
 
     public func markOpened(_ document: HTMLDocument) throws -> HTMLDocument {
-        guard try recent()?.id == document.id else { throw LocalHTMLError.invalidDraft }
+        guard try recent()?.id == document.id else { throw LocalHTMLError.invalidDraft("最近阅读记录与当前文件不一致。") }
         var updated = document
         updated.openedAt = Date()
         try JSONEncoder().encode(updated).write(to: recordURL, options: .atomic)
@@ -110,8 +114,7 @@ public struct LocalHTMLStore: Sendable {
     }
 
     public func discard(_ draft: HTMLImportDraft) throws {
-        guard draft.directory.standardizedFileURL == directory.appendingPathComponent(".staging-" + draft.id.uuidString) else { throw LocalHTMLError.invalidDraft }
-        try FileManager.default.removeItem(at: draft.directory)
+        try FileManager.default.removeItem(at: stagingDirectory(for: draft))
     }
 
     public func clear() throws {
@@ -130,6 +133,18 @@ public struct LocalHTMLStore: Sendable {
         let file = root.appendingPathComponent(document.entry).standardizedFileURL
         guard file.resolvingSymlinksInPath().pathComponents.starts(with: root.pathComponents), try file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else { throw LocalHTMLError.unavailable }
         return file
+    }
+
+    private func stagingDirectory(for draft: HTMLImportDraft) throws -> URL {
+        let library = directory.standardizedFileURL.resolvingSymlinksInPath()
+        let expected = library.appendingPathComponent(".staging-" + draft.id.uuidString, isDirectory: true)
+        let actual = draft.directory.standardizedFileURL.resolvingSymlinksInPath()
+        guard actual.pathComponents == expected.pathComponents else {
+            throw LocalHTMLError.invalidDraft("暂存目录身份不匹配。\n实际：" + actual.path + "\n预期：" + expected.path)
+        }
+        let values = try expected.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true else { throw LocalHTMLError.invalidDraft("暂存目录不存在或不是实体目录。") }
+        return expected
     }
 
     private static func valid(_ path: String) -> Bool {

@@ -9,3 +9,4 @@ Output/
 Apps/iOS/Assets.xcassets/
 __pycache__/
 *.pyc
+Apps/iOS/Generated-Info.plist

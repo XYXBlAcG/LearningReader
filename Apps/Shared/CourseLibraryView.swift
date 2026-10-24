@@ -6,6 +6,9 @@ struct CourseLibraryView: View {
     @ObservedObject var model: ReaderModel
     @Environment(\.dismiss) private var dismiss
     @State private var adding = false
+    #if os(iOS)
+    @StateObject private var webWorkspace = WebWorkspaceModel()
+    #endif
     var body: some View {
         NavigationStack {
             List {
@@ -28,14 +31,18 @@ struct CourseLibraryView: View {
                 }
                 Button("添加课程", systemImage: "plus") { adding = true }
                 #if os(iOS)
-                LocalHTMLSection()
+                LocalHTMLSection(model: webWorkspace)
                 #endif
             }
             .navigationTitle("课程仓库")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
             .sheet(isPresented: $adding) { AddCourseView(model: model) }
             .alert("课程仓库", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) { Button("知道了") { model.issue = nil } } message: { Text(model.issue ?? "") }
-        }.frame(minWidth: 320, minHeight: 420)
+        }
+        #if os(iOS)
+        .modifier(WebWorkspaceHost(model: webWorkspace))
+        #endif
+        .frame(minWidth: 320, minHeight: 420)
     }
 }
 
