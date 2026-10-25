@@ -126,21 +126,28 @@ struct AIPromptEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var image = ""
+    @State private var teaching = ""
+    @State private var formulas = ""
     var body: some View {
         Form {
             Section("文字讲解") { TextEditor(text: $text).frame(minHeight: 130) }
             Section("图片讲题") { TextEditor(text: $image).frame(minHeight: 130) }
+            Section("教学规范") { TextEditor(text: $teaching).frame(minHeight: 240) }
+            Section("公式规范") { TextEditor(text: $formulas).frame(minHeight: 200) }
             Section {
-                Button("恢复默认提示词") { text = AIPrompts.text; image = AIPrompts.image }
-                DisclosureGroup("教学与公式规范") { Text(AIPrompts.requirements).font(.callout).textSelection(.enabled) }
+                Button("恢复默认提示词") { text = AIPrompts.text; image = AIPrompts.image; teaching = AIPrompts.teaching; formulas = AIPrompts.formulas }
             }
         }
         .navigationTitle("讲解提示词")
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("保存") {
             var settings = workspace.settings; settings.textPrompt = text; settings.imagePrompt = image
+            settings.teachingRules = teaching; settings.formulaRules = formulas
             workspace.update(settings)
             if workspace.issue == nil { dismiss() }
         } } }
-        .task { text = workspace.settings.textPrompt; image = workspace.settings.imagePrompt }
+        .task {
+            text = workspace.settings.textPrompt; image = workspace.settings.imagePrompt
+            teaching = workspace.settings.teachingRules; formulas = workspace.settings.formulaRules
+        }
     }
 }

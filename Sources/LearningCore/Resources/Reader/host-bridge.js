@@ -8,6 +8,8 @@
   function createBridge(controller, send) {
     return {
       connected: false,
+      identity() { return controller.identity?.() || ''; },
+      material() { return controller.material?.() || null; },
       connect() { this.connected = true; this.publish(); },
       publish() { if (this.connected) send({ type: "state", state: controller.read() }); },
       dispatch(name, payload) {

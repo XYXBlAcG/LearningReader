@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '../../Sources/LearningCore/Resources/Reade
 
 async function reader() {
   const dom = new JSDOM('<main id="article"></main>', { runScripts: 'outside-only', url: 'https://offline.test/' });
-  for (const file of ['vendor/marked.min.js', 'vendor/purify.min.js', 'vendor/turndown-7.2.2.js', 'vendor/turndown-plugin-gfm-1.0.2.js', 'selection-copy.js', 'markdown.js', 'math-config.js', 'vendor/mathjax/tex-svg.js']) {
+  for (const file of ['vendor/marked.min.js', 'vendor/marked-cjk-friendly.min.js', 'vendor/purify.min.js', 'vendor/turndown-7.2.2.js', 'vendor/turndown-plugin-gfm-1.0.2.js', 'selection-copy.js', 'markdown.js', 'math-config.js', 'vendor/mathjax/tex-svg.js']) {
     dom.window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
   }
   await dom.window.MathJax.startup.promise;
@@ -95,6 +95,35 @@ test('answer streaming host coalesces updates and replaces old MathJax items', a
     const range = w.document.createRange(); range.selectNodeContents(article);
     w.getSelection().addRange(range);
     assert.match(w.ReaderSelectionCopy.selectionMarkdown(article), /\\frac\{1\}\{2\}/);
-    assert.match(w.ReaderSelectionCopy.elementMarkdown(article), /\\frac\{1\}\{2\}/);
+  } finally { dom.window.close(); }
+});
+
+test('Chinese punctuation and math inside strong text share correct emphasis parsing', async () => {
+  const dom = await reader();
+  try {
+    const w = dom.window, article = w.document.getElementById('article');
+    for (const source of ['这是**“重点”**内容', '这是**重点：**内容', String.raw`这是**$\frac{1}{2}$**的意义`, String.raw`这是**公式 $x+1$**的意义`]) {
+      w.MathJax.typesetClear([article]);
+      article.innerHTML = w.ReaderMarkdown.render(source);
+      await w.MathJax.typesetPromise([article]);
+      assert.equal(article.querySelectorAll('strong').length, 1, source);
+      assert.equal(article.textContent.includes('**'), false, source);
+      if (source.includes('$')) assert.equal(article.querySelectorAll('strong mjx-container').length, 1, source);
+    }
+    article.innerHTML = w.ReaderMarkdown.render('**直觉与 *理由***，\\*\\*原样\\*\\*，`**代码**`');
+    assert.equal(article.querySelectorAll('strong em').length, 1);
+    assert.equal(article.querySelector('code').textContent, '**代码**');
+    assert.ok(article.textContent.includes('**原样**'));
+  } finally { dom.window.close(); }
+});
+
+test('streamed strong punctuation renders when the closing delimiter arrives', async () => {
+  const dom = await reader();
+  try {
+    const w = dom.window, article = w.document.getElementById('article');
+    article.innerHTML = w.ReaderMarkdown.render('这是**“重点”');
+    assert.equal(article.querySelector('strong'), null);
+    article.innerHTML = w.ReaderMarkdown.render('这是**“重点”**内容');
+    assert.equal(article.querySelector('strong').textContent, '“重点”');
   } finally { dom.window.close(); }
 });

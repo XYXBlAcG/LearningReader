@@ -1,14 +1,15 @@
 (function(root) {
   'use strict';
   const mathPattern = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\begin\{[\s\S]+?\\end\{[^}]+\}|\$[^$\n]+?\$|\\\([\s\S]+?\\\)/g;
+  const parser = new marked.Marked({gfm:true,breaks:false}, ReaderCJK.default());
 
   function render(source, transform = value => value) {
     const sources = [];
-    const prefix = '⟦MATH' + Math.random().toString(36).slice(2) + ':';
-    const protectedSource = source.replace(mathPattern, value => prefix + (sources.push(value) - 1) + '⟧');
-    const html = marked.parse(transform(protectedSource), {gfm:true, breaks:false});
+    const prefix = 'MathSource' + Math.random().toString(36).slice(2) + 'Token';
+    const protectedSource = source.replace(mathPattern, value => prefix + (sources.push(value) - 1) + 'EndMath');
+    const html = parser.parse(transform(protectedSource));
     const template = document.createElement('template'); template.innerHTML = html;
-    const pattern = new RegExp(prefix + '(\\d+)⟧', 'g');
+    const pattern = new RegExp(prefix + '(\\d+)EndMath', 'g');
     const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
     const texts = []; while (walker.nextNode()) texts.push(walker.currentNode);
     for (const node of texts) {

@@ -1,6 +1,15 @@
 {
   "name": "learningreader-checks",
   "private": true,
-  "scripts": { "test:ai": "node --test Tests/ReaderTests/ai-markdown.test.cjs" },
-  "devDependencies": { "jsdom": "26.1.0" }
+  "scripts": {
+    "test:ai": "node --test Tests/ReaderTests/ai-markdown.test.cjs Tests/ReaderTests/reader-explanation.test.cjs",
+    "build:reader-vendor": "node Tools/build_reader_vendor.mjs",
+    "check:reader-vendor": "node Tools/build_reader_vendor.mjs --check"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "jsdom": "26.1.0",
+    "marked": "18.0.9",
+    "marked-cjk-friendly": "0.1.3"
+  }
 }

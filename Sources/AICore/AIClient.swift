@@ -32,7 +32,7 @@ public final class AIClient: Sendable {
                     switch event {
                     case .text(let text):
                         output += text
-                        guard output.count <= 160000 else { throw AIError.contextLimit }
+                        guard output.count <= 160000 else { throw AIError.outputLimit }
                     case .completed: completed = true
                     }
                 }

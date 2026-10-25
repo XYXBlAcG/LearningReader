@@ -59,8 +59,7 @@ final class AIWorkspace: ObservableObject {
         guard let profile = settings.profile(forImage: material.image != nil) else {
             throw material.image == nil ? AIError.configuration : AIError.imageUnsupported
         }
-        let prompt = material.image == nil ? settings.textPrompt : settings.imagePrompt
-        return AIConversation(title: material.title, profile: profile, key: try key(for: profile), system: AIPrompts.system(custom: prompt, image: material.image != nil), initial: try material.message())
+        return AIConversation(title: material.title, profile: profile, key: try key(for: profile), system: AIPrompts.system(settings: settings, image: material.image != nil), initial: try material.message())
     }
 }
 

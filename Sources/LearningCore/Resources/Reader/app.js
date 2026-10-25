@@ -11,7 +11,7 @@ let FILES = { notes: [], exercises: [] };
 let SEARCH_SECTIONS = [];
 let searchState = "loading";
 let selectedSearchResult = -1;
-let active = null; // { kind, path }
+let active = null;
 let documentPaths = {note:{},exercise:{}};
 
 let zoom = parseFloat(readerStorage.getItem("reader_zoom") || "1") || 1;
@@ -368,7 +368,7 @@ async function selectFile(kind, path, anchor = "", options = {}) {
       if (request !== navigationRequest) return;
       documentRendering = true;
       try {
-        active = { kind, path };
+        active = { kind, path, source: markdown };
         restoreScrollTop = Number(readerStorage.getItem(scrollKey()) || 0);
         document.querySelectorAll('.file-item').forEach(el => {
           el.classList.toggle('active', el.dataset.kind === kind && el.dataset.path === path);
@@ -394,7 +394,7 @@ async function selectFile(kind, path, anchor = "", options = {}) {
           navigation.remember(navigation.current);
         }
         if (request !== navigationRequest) return;
-        readerStorage.setItem('reader_last', JSON.stringify(active));
+        readerStorage.setItem('reader_last', JSON.stringify({kind:active.kind,path:active.path}));
         if (previousPath !== path) showNavigationError('文件已改名，当前打开：' + path);
         updateNavigation();
       } finally { documentRendering = false; }
@@ -965,6 +965,8 @@ setRightPanel(rightPanel);
 applySidebar();
 
 hostBridge = ReaderHostBridge.install({
+  identity: () => ReaderExplanation.identity(active, $('article')),
+  material: () => ReaderExplanation.course(active, $('article'), $('crumb').textContent),
   read: () => ({
     title: active ? sidebarLabel((activePool().find(file => file.path === active.path)) || { label: active.path }) : (window.COURSE?.title||'知序'),
     path: active?.path || '', hasDocument: !!active,

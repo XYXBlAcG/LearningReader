@@ -48,9 +48,10 @@ public final class AIConversation: ObservableObject, Identifiable {
     public func followUp(_ text: String) {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !running, !value.isEmpty, !answer.isEmpty else { return }
-        guard messages.count < 23, messages.reduce(0, { $0 + $1.text.count }) + answer.count + value.count <= 80000 else { issue = AIError.contextLimit.localizedDescription; return }
-        messages.append(.init(role: .assistant, text: answer))
-        messages.append(.init(role: .user, text: value))
+        let updated = messages + [.init(role: .assistant, text: answer), .init(role: .user, text: value)]
+        do { try AIInputBudget.validate(updated) }
+        catch { issue = error.localizedDescription; return }
+        messages = updated
         retry()
     }
     deinit { task?.cancel() }

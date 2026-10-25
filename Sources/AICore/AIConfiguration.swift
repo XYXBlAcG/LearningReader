@@ -64,7 +64,22 @@ public struct AISettings: Codable, Equatable, Sendable {
     public var imageProfileID: UUID?
     public var textPrompt = AIPrompts.text
     public var imagePrompt = AIPrompts.image
+    public var teachingRules = AIPrompts.teaching
+    public var formulaRules = AIPrompts.formulas
     public init() { }
+    private enum CodingKeys: String, CodingKey {
+        case profiles, textProfileID, imageProfileID, textPrompt, imagePrompt, teachingRules, formulaRules
+    }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        profiles = try values.decode([AIProfile].self, forKey: .profiles)
+        textProfileID = try values.decodeIfPresent(UUID.self, forKey: .textProfileID)
+        imageProfileID = try values.decodeIfPresent(UUID.self, forKey: .imageProfileID)
+        textPrompt = try values.decode(String.self, forKey: .textPrompt)
+        imagePrompt = try values.decode(String.self, forKey: .imagePrompt)
+        teachingRules = try values.decodeIfPresent(String.self, forKey: .teachingRules) ?? AIPrompts.teaching
+        formulaRules = try values.decodeIfPresent(String.self, forKey: .formulaRules) ?? AIPrompts.formulas
+    }
     public func profile(forImage image: Bool) -> AIProfile? {
         let id = image ? imageProfileID ?? textProfileID : textProfileID
         return profiles.first { $0.id == id && (!image || $0.supportsImages) }
@@ -85,7 +100,7 @@ public struct AISettingsStore: Sendable {
 }
 
 public enum AIError: LocalizedError, Equatable {
-    case configuration, missingKey, imageUnsupported, invalidStream, incomplete, empty, contextLimit, service(Int), generation(String)
+    case configuration, missingKey, imageUnsupported, invalidStream, incomplete, empty, contextLimit, outputLimit, service(Int), generation(String)
     public var errorDescription: String? {
         switch self {
         case .configuration: return "请检查接口类型、HTTPS API 地址和模型 ID。地址不能包含密钥、账号或额外查询参数。"
@@ -94,11 +109,12 @@ public enum AIError: LocalizedError, Equatable {
         case .invalidStream: return "服务返回的数据不符合所选接口协议。"
         case .incomplete: return "回答未完整结束，可能达到输出上限或连接中断。可重试或继续追问。"
         case .empty: return "服务没有返回可显示的文字。请检查模型及接口类型。"
-        case .contextLimit: return "当前对话已达到长度上限，请开始新问题。"
+        case .contextLimit: return "文件与对话超过客户端单次输入上限（\(AIInputBudget.maximumBytes) 字节或 \(AIInputBudget.maximumMessages) 条消息），未截断内容。请换用较小的文件或开始新问题。"
+        case .outputLimit: return "回答超过客户端显示上限，请围绕当前问题分步追问。"
         case .service(let code):
             if code == 401 || code == 403 { return "API 授权失败（HTTP \(code)），请检查 Key 和模型权限。" }
             if code == 429 { return "API 请求受限或额度不足（HTTP 429），请稍后重试或检查账户。" }
-            return "API 请求失败（HTTP \(code)）。请检查地址、模型及图片支持情况。"
+            return "API 请求失败（HTTP \(code)）。请检查地址、模型、服务输入长度限制及图片支持情况。"
         case .generation(let reason): return reason
         }
     }

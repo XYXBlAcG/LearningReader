@@ -40,7 +40,8 @@ final class AITransportTests: XCTestCase {
 
     @MainActor
     func testConversationKeepsFollowupTurnsAndStopsPreviousGeneration() async throws {
-        let session = AIConversation(title: "Question", profile: request("complete").profile, key: "fixture-key", system: "teach", initial: .init(role: .user, text: "first"), client: client())
+        let initial = try AIMaterial(title: "Question", text: "selected", document: "首条消息的全文").message()
+        let session = AIConversation(title: "Question", profile: request("complete").profile, key: "fixture-key", system: "teach", initial: initial, client: client())
         session.retry()
         for _ in 0..<500 {
             if !session.running { break }
@@ -52,6 +53,8 @@ final class AITransportTests: XCTestCase {
         session.followUp("再讲一讲")
         XCTAssertEqual(session.messages.map(\.role), [.user, .assistant, .user])
         XCTAssertEqual(session.messages[1].text, "数学公式")
+        XCTAssertTrue(session.messages[0].text.contains("首条消息的全文"))
+        XCTAssertFalse(session.messages[2].text.contains("首条消息的全文"))
         session.stop()
         try await Task.sleep(nanoseconds: 50_000_000)
         XCTAssertFalse(session.running)

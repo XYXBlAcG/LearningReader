@@ -11,7 +11,7 @@ public struct AIRequest: Sendable {
     public func urlRequest() throws -> URLRequest {
         guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AIError.missingKey }
         guard messages.first?.role == .user, messages.last?.role == .user else { throw AIError.configuration }
-        guard messages.count <= 24, messages.reduce(0, { $0 + $1.text.count }) <= 80000 else { throw AIError.contextLimit }
+        try AIInputBudget.validate(messages)
         guard profile.supportsImages || messages.allSatisfy({ $0.image == nil }) else { throw AIError.imageUnsupported }
         var request = URLRequest(url: try profile.endpoint())
         request.httpMethod = "POST"
