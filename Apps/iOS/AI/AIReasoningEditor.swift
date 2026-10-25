@@ -15,7 +15,7 @@ struct AIReasoningEditor:View {
                     ForEach(AIReasoningMode.available(for:profile.api),id:\.self) { Text($0.title).tag($0) }
                 }
                 if configuration.mode == .budget {
-                    TextField("思考 Token 预算",text:Binding(get:{String(configuration.budget)},set:{value in if let count=Int(value) { var updated=configuration;updated.budget=count;profile.reasoning=updated } })).keyboardType(.numbersAndPunctuation)
+                    TextField("思考 Token 预算",value:Binding(get:{configuration.budget},set:{value in var updated=configuration;updated.budget=value;profile.reasoning=updated}),format:.number).keyboardType(.numbersAndPunctuation)
                 } else {
                     Picker("推理强度",selection:Binding(get:{configuration.effort},set:{value in var updated=configuration;updated.effort=value;profile.reasoning=updated})) {
                         ForEach(configuration.efforts(for:profile.api),id:\.self) { Text($0.title+"（"+$0.rawValue+"）").tag($0) }
