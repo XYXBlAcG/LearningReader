@@ -61,3 +61,43 @@ test('web context includes whole document and formula sources, excluding executa
     assert.equal(value.identity,'https://example.org/read');
   } finally { dom.window.close(); }
 });
+
+test('selection snapshot survives edit menu collapse but not a document change', () => {
+  const dom = page('<main id="article"><p id="selected">选区中的条件</p></main>');
+  try {
+    const w=dom.window, article=w.document.getElementById('article');
+    let current={kind:'note',path:'a.md',source:'完整文件'};
+    const capture=w.ReaderExplanation.bindCourse(()=>current,article,()=> '标题');
+    w.document.dispatchEvent(new w.Event('selectionchange'));
+    w.getSelection().removeAllRanges();
+    w.document.dispatchEvent(new w.Event('selectionchange'));
+    assert.equal(capture.material().text,'选区中的条件');
+    current={kind:'note',path:'b.md',source:'另一个文件'};
+    assert.equal(capture.material(),null);
+    capture.dispose();
+  } finally { dom.window.close(); }
+});
+
+test('web selection snapshot expires with its source nodes or page identity', () => {
+  const dom=page('<article><p id="selected">本地网页题目</p><p>补充条件</p></article>');
+  try {
+    const w=dom.window;
+    const capture=w.ReaderExplanation.bindWebpage(w.document);
+    w.document.dispatchEvent(new w.Event('selectionchange'));
+    w.getSelection().removeAllRanges();
+    assert.equal(capture.material().text,'本地网页题目');
+    assert.ok(capture.material().document.includes('补充条件'));
+    w.history.replaceState({},'', '/another');
+    assert.equal(capture.material(),null);
+    capture.dispose();
+    const range=w.document.createRange();
+    range.selectNodeContents(w.document.getElementById('selected'));
+    w.getSelection().addRange(range);
+    const replaced=w.ReaderExplanation.bindWebpage(w.document);
+    assert.ok(replaced.material());
+    w.getSelection().removeAllRanges();
+    w.document.getElementById('selected').remove();
+    assert.equal(replaced.material(),null);
+    replaced.dispose();
+  } finally { dom.window.close(); }
+});

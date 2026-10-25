@@ -10,6 +10,8 @@
       connected: false,
       identity() { return controller.identity?.() || ''; },
       material() { return controller.material?.() || null; },
+      prepareSelection() { controller.material?.(); },
+      search(query) { return controller.search?.(query) || []; },
       connect() { this.connected = true; this.publish(); },
       publish() { if (this.connected) send({ type: "state", state: controller.read() }); },
       dispatch(name, payload) {
@@ -25,7 +27,7 @@
     const bridge = createBridge(controller, value => handler.postMessage(value));
     window.MathReaderBridge = bridge;
     const connect = bridge.connect.bind(bridge);
-    bridge.connect = () => { connect(); document.body.classList.add("native-host"); };
+    bridge.connect = () => { connect(); document.body.classList.add("native-host"); if(window.READER_NATIVE_PANELS)document.body.classList.add('native-panels'); };
     return bridge;
   }
 

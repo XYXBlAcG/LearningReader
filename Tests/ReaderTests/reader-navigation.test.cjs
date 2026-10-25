@@ -2,6 +2,26 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { ReaderNavigation } = require("../../Sources/LearningCore/Resources/Reader/navigation.js");
 
+test('history deletion, clear and undo persist without resurrecting on passive restore', () => {
+  const env = environment();
+  const nav = new ReaderNavigation(env.browser,env.storage,env.storage);
+  nav.visit({kind:'note',path:'a.md'},{top:10});
+  nav.visit({kind:'note',path:'b.md'},{top:20});
+  nav.remove('note','a.md');
+  assert.deepEqual(nav.records.map(x=>x.path),['b.md']);
+  nav.clear();
+  assert.equal(nav.records.length,0);
+  nav.undo();
+  assert.deepEqual(nav.records.map(x=>x.path),['b.md']);
+  nav.clear();
+  const restored = new ReaderNavigation(env.browser,env.storage,env.storage);
+  restored.visit({kind:'note',path:'b.md'},{top:20},{remember:false});
+  restored.checkpoint({top:40});
+  assert.equal(restored.records.length,0);
+  restored.visit({kind:'note',path:'b.md'},{top:40});
+  assert.equal(restored.records.length,1);
+});
+
 function environment(initialURL = "mathreader://local/reader/index.html") {
   const data = new Map();
   const storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) };

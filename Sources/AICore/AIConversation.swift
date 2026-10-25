@@ -5,6 +5,7 @@ import Combine
 public final class AIConversation: ObservableObject, Identifiable {
     public let id = UUID()
     public let title: String
+    public let actionTitle: String
     public let profile: AIProfile
     @Published public private(set) var messages: [AIMessage]
     @Published public private(set) var answer = ""
@@ -16,7 +17,8 @@ public final class AIConversation: ObservableObject, Identifiable {
     private var task: Task<Void, Never>?
     private var generation = UUID()
 
-    public init(title: String, profile: AIProfile, key: String, system: String, initial: AIMessage, client: AIClient = AIClient()) {
+    public init(title: String, profile: AIProfile, key: String, system: String, initial: AIMessage, actionTitle: String = "讲一讲", client: AIClient = AIClient()) {
+        self.actionTitle=actionTitle
         self.client = client
         self.title = title; self.profile = profile; self.key = key; self.system = system; messages = [initial]
     }

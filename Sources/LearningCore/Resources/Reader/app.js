@@ -380,18 +380,18 @@ async function selectFile(kind, path, anchor = "", options = {}) {
         });
         $('crumb').textContent = (kind === 'note' ? '📒 ' : '✏️ ') + path;
         updateCounterpart();updatePinButton();updateFileNavigation();
-        graphView.showDocument(kind, path);
+        graphView?.showDocument(kind, path);
         const initialPosition = options.snapshot || { top: anchor ? 0 : restoreScrollTop, references: [] };
         if (options.traversal) {
           navigation.current = { ...navigation.current, kind, path, snapshot: initialPosition };
           navigation.checkpoint(initialPosition);
-        } else navigation.visit({ kind, path, anchor }, initialPosition);
+        } else navigation.visit({ kind, path, anchor }, initialPosition, {remember:options.remember !== false});
         const entry = navigation.current;
         updateNavigation();
         await renderMarkdown(markdown, anchor, options.snapshot || null);
         if (navigation.current === entry) {
           navigation.checkpoint(captureReadingPosition());
-          navigation.remember(navigation.current);
+          if (options.remember !== false) navigation.remember(navigation.current);
         }
         if (request !== navigationRequest) return;
         readerStorage.setItem('reader_last', JSON.stringify({kind:active.kind,path:active.path}));
@@ -408,7 +408,7 @@ async function selectFile(kind, path, anchor = "", options = {}) {
       $('article').replaceChildren();
       $('outlineList').replaceChildren();
       $('crumb').textContent = path;
-      graphView.showDocument(kind, path);
+      graphView?.showDocument(kind, path);
       document.querySelectorAll('.file-item.active').forEach(el => el.classList.remove('active'));
       updateCounterpart();updatePinButton();updateFileNavigation();
     }
@@ -653,11 +653,11 @@ function updatePinButton() {
 }
 
 function toggleActivePin() {
-  if (!active) return;
-  pinnedFiles = PINNED_FILES.togglePinned(
-    pinnedFiles,
-    PINNED_FILES.documentKey(active.kind, active.path),
-  );
+  if (active) toggleDocumentPin(active.kind,active.path);
+}
+
+function toggleDocumentPin(kind,path) {
+  pinnedFiles = PINNED_FILES.togglePinned(pinnedFiles,PINNED_FILES.documentKey(kind,path));
   readerStorage.setItem("reader_pinned_files", JSON.stringify(pinnedFiles));
   updatePinButton();
   buildSidebar();
@@ -952,7 +952,7 @@ setZoom(zoom);
 setOutlineWidth(outlineWidth);
 setImmersive(immersive);
 setOutline(outlineOpen);
-graphView = ReaderKnowledgeGraph.createView({
+if (!window.READER_NATIVE_PANELS) graphView = ReaderKnowledgeGraph.createView({
   container: $("graphCanvas"),
   empty: $("graphEmpty"),
   incoming: $("graphIncoming"),
@@ -964,12 +964,19 @@ graphView = ReaderKnowledgeGraph.createView({
 setRightPanel(rightPanel);
 applySidebar();
 
+const selectionCapture=ReaderExplanation.bindCourse(()=>active,$('article'),()=>$('crumb').textContent);
 hostBridge = ReaderHostBridge.install({
   identity: () => ReaderExplanation.identity(active, $('article')),
-  material: () => ReaderExplanation.course(active, $('article'), $('crumb').textContent),
+  material: () => selectionCapture.material(),
+  search: query => ReaderSearch.searchSections(SEARCH_SECTIONS,query),
   read: () => ({
     title: active ? sidebarLabel((activePool().find(file => file.path === active.path)) || { label: active.path }) : (window.COURSE?.title||'知序'),
     path: active?.path || '', hasDocument: !!active,
+    documentKind:active?.kind || '',
+    pinnedKeys:pinnedFiles,
+    canUndoHistory:!!navigation.deleted,
+    searchStatus:searchState,
+    outlineItems:[...$('article').querySelectorAll('h1[id],h2[id],h3[id],h4[id]')].map(item=>({id:item.id,title:item.textContent,level:Number(item.tagName.slice(1))})),
     canBack: navigation.canBack, canForward: navigation.canForward,
     pinned: !!active && pinnedFiles.includes(PINNED_FILES.documentKey(active.kind, active.path)),
     counterpart: active && findCounterpart(active.kind, active.path) ? (active.kind === 'note' ? '对应题目' : '对应笔记') : '',
@@ -1003,6 +1010,17 @@ hostBridge = ReaderHostBridge.install({
       case 'previous': moveFile(-1); break;
       case 'next': moveFile(1); break;
       case 'clearHistory': navigation.clear(); updateNavigation(); break;
+      case 'deleteHistory': navigation.remove(payload?.kind,payload?.path); updateNavigation(); break;
+      case 'undoHistory': navigation.undo(); updateNavigation(); break;
+      case 'discardHistoryUndo': navigation.deleted=null; break;
+      case 'openDocument':
+        if (['note','exercise'].includes(payload?.kind) && (payload.kind === 'note' ? FILES.notes : FILES.exercises).some(file=>file.path===payload.path)) selectFile(payload.kind,payload.path,payload.anchor || '');
+        break;
+      case 'pinDocument':
+        if (['note','exercise'].includes(payload?.kind) && (payload.kind === 'note' ? FILES.notes : FILES.exercises).some(file=>file.path===payload.path)) {
+          toggleDocumentPin(payload.kind,payload.path);
+        }
+        break;
       case 'openHistory': {
         const record = navigation.records.find(item => item.kind === payload?.kind && item.path === payload?.path);
         if (record) selectFile(record.kind, record.path, '', { snapshot: record.snapshot });
@@ -1012,7 +1030,7 @@ hostBridge = ReaderHostBridge.install({
   },
 });
 
-fetch(DATA_SOURCE.graphUrl())
+if (!window.READER_NATIVE_PANELS) fetch(DATA_SOURCE.graphUrl())
   .then((response) => {
     if (!response.ok) throw new Error("HTTP " + response.status);
     return response.json();
@@ -1031,10 +1049,12 @@ fetch(DATA_SOURCE.searchUrl())
   .then((index) => {
     SEARCH_SECTIONS = index.sections || [];
     searchState = "ready";
+    hostBridge?.publish();
     if (searchText) buildSidebar();
   })
   .catch(() => {
     searchState = "error";
+    hostBridge?.publish();
     if (searchText) buildSidebar();
   });
 
@@ -1071,11 +1091,11 @@ Promise.all([fetch(DATA_SOURCE.filesUrl()).then(r=>r.json()), fetch('/reader/doc
     if (last && pool.some((f) => f.path === last.path)) {
       const snapshot = navigation.current?.kind === last.kind && navigation.current?.path === last.path
         ? navigation.current.snapshot : null;
-      selectFile(last.kind, last.path, last.anchor || "", { snapshot });
+      selectFile(last.kind, last.path, last.anchor || "", { snapshot,remember:false });
     } else {
       const entry=ReaderCourseContext.resolve(window.COURSE?.entry||'',null,FILES);
       const first=entry||(FILES.notes[0]?{kind:'note',path:FILES.notes[0].path}:FILES.exercises[0]?{kind:'exercise',path:FILES.exercises[0].path}:null);
-      if(first)selectFile(first.kind,first.path);
+      if(first)selectFile(first.kind,first.path,'',{remember:false});
     }
   })
   .catch((err) => {

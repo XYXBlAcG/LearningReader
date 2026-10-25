@@ -3,45 +3,61 @@ import AICore
 import LearningCore
 
 @MainActor
+struct AISelectionCommand {
+    let action: AISelectionAction
+    let load: @MainActor () async throws -> AIMaterial
+}
+
+@MainActor
 final class ExplainingWebView: WKWebView {
-    var onExplain: ((AIMaterial) -> Void)?
+    var onAction: ((AISelectionCommand) -> Void)?
+    var actions: [AISelectionAction] = [.explain]
     var courseSelection = false
+    private var bootstrapIssue: String?
+
+    override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        super.init(frame:frame,configuration:configuration)
+        do {
+            let source=try String(contentsOf:ReaderAssets.reader.appendingPathComponent("explanation.js"),encoding:.utf8)
+            configuration.userContentController.addUserScript(WKUserScript(source:source+"\nwindow.ReaderPageSelection=ReaderExplanation.bindWebpage(document);",injectionTime:.atDocumentEnd,forMainFrameOnly:true,in:.defaultClient))
+        } catch { bootstrapIssue=error.localizedDescription }
+    }
+    required init?(coder:NSCoder) { fatalError("init(coder:) unavailable") }
 
     override func buildMenu(with builder: UIMenuBuilder) {
-        super.buildMenu(with: builder)
-        guard builder.system == .context, onExplain != nil else { return }
-        let identity = url
-        let snapshot = Task { [weak self] in await self?.selectedMaterial() }
-        let action = UIAction(title: "讲一讲", image: UIImage(systemName: "sparkles")) { [weak self] _ in
-            Task { [weak self] in
-                guard let captured = await snapshot.value, let self, self.window != nil, self.url == identity else { return }
-                let script = self.courseSelection ? "return window.MathReaderBridge?.identity() || ''" : "return document.location.href"
-                guard let current = try? await self.callAsyncJavaScript(script, arguments: [:], in: nil, in: self.courseSelection ? .page : .defaultClient),
-                      current as? String == captured.identity, self.window != nil, self.url == identity else { return }
-                self.onExplain?(captured.material)
+        super.buildMenu(with:builder)
+        guard builder.system == .context, onAction != nil else { return }
+        let world: WKContentWorld = courseSelection ? .page : .defaultClient
+        let prepare = courseSelection ? "window.MathReaderBridge?.prepareSelection()" : "window.ReaderPageSelection?.material(); undefined"
+        callAsyncJavaScript(prepare,arguments:[:],in:nil,in:world,completionHandler:nil)
+        let expectedURL=url
+        let items=actions.filter(\.enabled).map { action in
+            UIAction(title:action.title,image:UIImage(systemName:"sparkles")) { [weak self] _ in
+                guard let self else { return }
+                let command=AISelectionCommand(action:action,load:{ [weak self] in
+                    guard let self else { throw AISelectionError.documentChanged }
+                    return try await self.selectedMaterial(expectedURL:expectedURL)
+                })
+                self.onAction?(command)
             }
         }
-        Task { if await snapshot.value == nil { action.attributes = .disabled } }
-        builder.insertChild(UIMenu(options: .displayInline, children: [action]), atStartOfMenu: .root)
+        if !items.isEmpty { builder.insertChild(UIMenu(options:.displayInline,children:items),atStartOfMenu:.root) }
     }
 
-    private struct CapturedMaterial {
-        let identity: String
-        let material: AIMaterial
-    }
-
-    private func selectedMaterial() async -> CapturedMaterial? {
-        let course = courseSelection
-        let script: String
-        if course { script = "return window.MathReaderBridge?.material()" }
-        else {
-            guard let extraction = try? String(contentsOf: ReaderAssets.reader.appendingPathComponent("explanation.js"), encoding: .utf8) else { return nil }
-            script = extraction + "\nreturn window.ReaderExplanation.webpage(document)"
-        }
-        let identity = url
-        guard let raw = try? await callAsyncJavaScript(script, arguments: [:], in: nil, in: course ? .page : .defaultClient),
-              url == identity, let data = raw as? [String: String], let documentID = data["identity"], let document = data["document"],
-              let text = data["text"], !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return CapturedMaterial(identity: documentID, material: AIMaterial(title: data["title"] ?? "阅读内容", text: text, document: document))
+    private func selectedMaterial(expectedURL:URL?) async throws -> AIMaterial {
+        guard window != nil, url == expectedURL else { throw AISelectionError.documentChanged }
+        if let bootstrapIssue, !courseSelection { throw AIError.generation("加载选区脚本："+bootstrapIssue) }
+        let script = courseSelection
+            ? "if(!window.MathReaderBridge) throw new Error('阅读器桥接未就绪'); return window.MathReaderBridge.material()"
+            : "if(!window.ReaderPageSelection) throw new Error('选区脚本未就绪'); return window.ReaderPageSelection.material()"
+        let world:WKContentWorld=courseSelection ? .page : .defaultClient
+        let raw=try await readerJavaScript(script,world:world)
+        try Task.checkCancellation()
+        guard let raw, !(raw is NSNull) else { throw AISelectionError.noSelection }
+        guard let data=raw as? [String:String], let documentID=data["identity"], let document=data["document"], let text=data["text"], !text.isEmpty else { throw AISelectionError.invalidPayload }
+        let check = courseSelection ? "return window.MathReaderBridge?.identity() || ''" : "return document.location.href"
+        let identity=try await readerJavaScript(check,world:world)
+        guard window != nil, url == expectedURL, identity as? String == documentID else { throw AISelectionError.documentChanged }
+        return AIMaterial(title:data["title"] ?? "阅读内容",text:text,document:document)
     }
 }

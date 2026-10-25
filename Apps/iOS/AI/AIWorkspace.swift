@@ -20,13 +20,13 @@ final class AIWorkspace: ObservableObject {
         return key
     }
 
-    func save(_ profile: AIProfile, key: String) throws {
+    func save(_ profile: AIProfile, key: String, asTextDefault:Bool = false) throws {
         _ = try profile.endpoint()
         guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AIError.missingKey }
         var updated = settings
         if let index = updated.profiles.firstIndex(where: { $0.id == profile.id }) { updated.profiles[index] = profile }
         else { updated.profiles.append(profile) }
-        if updated.textProfileID == nil { updated.textProfileID = profile.id }
+        if updated.textProfileID == nil || asTextDefault { updated.textProfileID = profile.id }
         if !profile.supportsImages && updated.imageProfileID == profile.id { updated.imageProfileID = nil }
         let previous = try KeychainStore.read(service: Self.keyService, account: profile.id.uuidString)
         try KeychainStore.save(Data(key.trimmingCharacters(in: .whitespacesAndNewlines).utf8), service: Self.keyService, account: profile.id.uuidString)
@@ -55,27 +55,27 @@ final class AIWorkspace: ObservableObject {
         } catch { issue = error.localizedDescription }
     }
 
-    func conversation(for material: AIMaterial) throws -> AIConversation {
+    func conversation(for material: AIMaterial, action:AISelectionAction = .explain, includeDocument:Bool = true) throws -> AIConversation {
         guard let profile = settings.profile(forImage: material.image != nil) else {
             throw material.image == nil ? AIError.configuration : AIError.imageUnsupported
         }
-        return AIConversation(title: material.title, profile: profile, key: try key(for: profile), system: AIPrompts.system(settings: settings, image: material.image != nil), initial: try material.message())
+        return AIConversation(title:material.title,profile:profile,key:try key(for:profile),system:AIPrompts.system(settings:settings,image:material.image != nil,action:action),initial:try material.message(includeDocument:includeDocument),actionTitle:action.title)
     }
 }
 
 @MainActor
 final class AIInteraction: ObservableObject {
-    @Published var conversation: AIConversation?
-    @Published var issue: String?
+    @Published var invocation: AIInvocation?
     @Published var showSettings = false
     @Published var media: AIImageSource?
     func explain(_ material: AIMaterial, workspace: AIWorkspace) {
-        do {
-            let session = try workspace.conversation(for: material)
-            conversation?.stop()
-            conversation = session
-            session.retry()
-        } catch { issue = error.localizedDescription }
+        begin(AISelectionCommand(action:.explain,load:{material}),workspace:workspace)
+    }
+    func begin(_ command:AISelectionCommand,workspace:AIWorkspace) {
+        invocation?.cancel()
+        let run=AIInvocation(action:command.action,askForContext:workspace.settings.askForContext,includeDocument:workspace.settings.includeDocumentByDefault)
+        invocation=run
+        run.prepare(load:command.load)
     }
 }
 

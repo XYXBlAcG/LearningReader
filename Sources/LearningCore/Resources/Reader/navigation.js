@@ -11,6 +11,7 @@
       this.storage = storage;
       this.session = session;
       this.records = [];
+      this.deleted = null;
       try {
         const saved = JSON.parse(storage.getItem("reader_recent") || "[]");
         if (Array.isArray(saved)) this.records = saved.filter(item =>
@@ -37,7 +38,7 @@
       }
     }
 
-    visit(target, snapshot) {
+    visit(target, snapshot, options = {}) {
       const entry = { ...target, anchor: target.anchor || "", snapshot, index: this.index };
       const same = this.current && this.current.kind === entry.kind && this.current.path === entry.path
         && this.current.anchor === entry.anchor;
@@ -48,7 +49,7 @@
       this.index = entry.index;
       if (!same) this.tip = this.index;
       this.session.setItem("reader_navigation_tip", String(this.tip));
-      this.remember(entry);
+      if (options.remember !== false) this.remember(entry);
     }
 
     adopt(state) {
@@ -66,7 +67,13 @@
     }
 
     persist() { this.storage.setItem("reader_recent", JSON.stringify(this.records)); }
-    clear() { this.records = []; this.storage.removeItem("reader_recent"); }
+    clear() { this.deleted=this.records; this.records = []; this.storage.removeItem("reader_recent"); }
+    remove(kind,path) {
+      this.deleted=this.records;
+      this.records=this.records.filter(item=>item.kind!==kind || item.path!==path);
+      this.persist();
+    }
+    undo() { if (this.deleted) { this.records=this.deleted; this.deleted=null; this.persist(); } }
     url(entry) {
       const params = new URLSearchParams({ kind: entry.kind, path: entry.path });
       if (entry.anchor) params.set("anchor", entry.anchor);

@@ -13,7 +13,7 @@ struct WebBrowserScreen: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            WebPageView(source: .website(address), state: state, onExplain: { interaction.explain($0, workspace: ai) }).ignoresSafeArea()
+            WebPageView(source:.website(address),state:state,actions:ai.settings.actions,onAction:{interaction.begin($0,workspace:ai)}).ignoresSafeArea()
             if let issue = state.issue {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle").font(.largeTitle)

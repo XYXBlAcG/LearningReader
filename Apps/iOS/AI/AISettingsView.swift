@@ -23,6 +23,7 @@ struct AISettingsView: View {
                     NavigationLink("添加服务") { AIProfileEditor(profile: AIProfile()) }
                 }
                 Section("默认服务") {
+                    if let profile=workspace.settings.profile(forImage:false) { Text("当前讲解："+(profile.name.isEmpty ? profile.model : profile.name)).font(.callout) }
                     Picker("文字", selection: Binding(get: { workspace.settings.textProfileID }, set: { value in
                         var settings = workspace.settings; settings.textProfileID = value; workspace.update(settings)
                     })) {
@@ -37,7 +38,12 @@ struct AISettingsView: View {
                     }
                 }
                 Section {
+                    NavigationLink("长按菜单操作") { AIActionSettingsView() }
                     NavigationLink("讲解提示词") { AIPromptEditor() }
+                }
+                Section("文章上下文") {
+                    Toggle("每次询问是否使用全文",isOn:Binding(get:{workspace.settings.askForContext},set:{value in var settings=workspace.settings;settings.askForContext=value;workspace.update(settings)}))
+                    Toggle("默认使用整篇文章",isOn:Binding(get:{workspace.settings.includeDocumentByDefault},set:{value in var settings=workspace.settings;settings.includeDocumentByDefault=value;workspace.update(settings)}))
                 }
             }
             .navigationTitle("AI 设置")
@@ -66,16 +72,22 @@ struct AIProfileEditor: View {
                     ForEach(AIProtocol.allCases, id: \.self) { Text($0.title).tag($0) }
                 }.onChange(of: profile.api) { old, new in
                     if profile.baseURL == old.defaultURL { profile.baseURL = new.defaultURL }
+                    profile.reasoning=nil
                 }
                 TextField("API 基础地址", text: $profile.baseURL).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 SecureField("API Key", text: $key).textInputAutocapitalization(.never).autocorrectionDisabled()
                 TextField("模型 ID", text: $profile.model).textInputAutocapitalization(.never).autocorrectionDisabled()
                 Toggle("支持图片", isOn: $profile.supportsImages)
             }.disabled(testing)
+            AIReasoningEditor(profile:$profile).disabled(testing)
             if let endpoint = try? profile.endpoint() {
                 Section("请求地址") { Text(endpoint.absoluteString).font(.caption).textSelection(.enabled) }
             }
             Section {
+                Button("保存并用于文字讲解") {
+                    do { try workspace.save(profile,key:key,asTextDefault:true);dismiss() }
+                    catch { status=error.localizedDescription }
+                }.disabled(testing)
                 Button("测试文字连接") { test(image: false) }.disabled(testing)
                 Button("测试图片输入") { test(image: true) }.disabled(testing || !profile.supportsImages)
                 if testing { Button("停止测试") { task?.cancel(); testing = false } }
@@ -124,29 +136,28 @@ struct AIProfileEditor: View {
 struct AIPromptEditor: View {
     @EnvironmentObject private var workspace: AIWorkspace
     @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
     @State private var image = ""
     @State private var teaching = ""
     @State private var formulas = ""
     var body: some View {
         Form {
-            Section("文字讲解") { TextEditor(text: $text).frame(minHeight: 130) }
+            Section { NavigationLink("编辑长按菜单任务") { AIActionSettingsView() } }
             Section("图片讲题") { TextEditor(text: $image).frame(minHeight: 130) }
             Section("教学规范") { TextEditor(text: $teaching).frame(minHeight: 240) }
             Section("公式规范") { TextEditor(text: $formulas).frame(minHeight: 200) }
             Section {
-                Button("恢复默认提示词") { text = AIPrompts.text; image = AIPrompts.image; teaching = AIPrompts.teaching; formulas = AIPrompts.formulas }
+                Button("恢复默认规范与图片提示词") { image = AIPrompts.image; teaching = AIPrompts.teaching; formulas = AIPrompts.formulas }
             }
         }
         .navigationTitle("讲解提示词")
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("保存") {
-            var settings = workspace.settings; settings.textPrompt = text; settings.imagePrompt = image
+            var settings = workspace.settings; settings.imagePrompt = image
             settings.teachingRules = teaching; settings.formulaRules = formulas
             workspace.update(settings)
             if workspace.issue == nil { dismiss() }
         } } }
         .task {
-            text = workspace.settings.textPrompt; image = workspace.settings.imagePrompt
+            image = workspace.settings.imagePrompt
             teaching = workspace.settings.teachingRules; formulas = workspace.settings.formulaRules
         }
     }

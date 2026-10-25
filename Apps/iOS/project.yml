@@ -1,5 +1,6 @@
 name: LearningReader
 options:
+  developmentLanguage: zh-Hans
   bundleIdPrefix: chatgpt.nice114514
   deploymentTarget:
     iOS: "18.0"
@@ -7,8 +8,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     CODE_SIGNING_ALLOWED: NO
-    MARKETING_VERSION: "2.4"
-    CURRENT_PROJECT_VERSION: "7"
+    MARKETING_VERSION: "2.5"
+    CURRENT_PROJECT_VERSION: "8"
 packages:
   LearningCore:
     path: ../..
@@ -19,10 +20,13 @@ targets:
     info:
       path: Generated-Info.plist
       properties:
+        CFBundleDevelopmentRegion: zh-Hans
+        CFBundleLocalizations: [zh-Hans]
         NSCameraUsageDescription: 拍摄需要讲解的题目，由你选择的 AI 服务分析图片。
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
     sources:
+      - path: Localization
       - path: UI
       - path: Web
       - path: AI

@@ -16,7 +16,10 @@ final class ReaderController: ObservableObject {
     @Published var state: ReaderWebState?
     weak var webView: WKWebView?
     #if os(iOS)
-    var onExplain: ((AIMaterial) -> Void)?
+    var onSelection: ((AISelectionCommand) -> Void)?
+    var selectionActions: [AISelectionAction] = [.explain] {
+        didSet { (webView as? ExplainingWebView)?.actions=selectionActions }
+    }
     #endif
 
     func send(_ command: String, payload: [String: String] = [:]) {
@@ -26,6 +29,15 @@ final class ReaderController: ObservableObject {
     func search() {
         if state?.sidebar != true { send("sidebar") }
         webView?.evaluateJavaScript("document.getElementById('searchInput').focus()")
+    }
+    func open(_ target:ReaderDocumentTarget) {
+        send("openDocument",payload:["kind":target.kind.rawValue,"path":target.path,"anchor":target.anchor])
+    }
+    func searchNative(_ query:String) async throws -> [ReaderSearchResult] {
+        guard let webView else { throw ReaderError.missingContent }
+        let raw=try await webView.readerJavaScript("return window.MathReaderBridge.search(query)",arguments:["query":query])
+        guard let raw else { throw ReaderError.invalidIndex }
+        return try JSONDecoder().decode([ReaderSearchResult].self,from:JSONSerialization.data(withJSONObject:raw))
     }
 }
 
@@ -63,7 +75,12 @@ struct ReaderSurface: PlatformReaderView {
         #if os(iOS)
         let web = ExplainingWebView(frame: .zero, configuration: configuration)
         web.courseSelection = true
-        web.onExplain = { [weak controller] material in controller?.onExplain?(material) }
+        web.actions=controller.selectionActions
+        web.onAction = { [weak controller] command in
+            guard let handler=controller?.onSelection else { onError("阅读器操作尚未准备就绪，请重试。"); return }
+            handler(command)
+        }
+        configuration.userContentController.addUserScript(WKUserScript(source:"window.READER_NATIVE_PANELS=true;",injectionTime:.atDocumentStart,forMainFrameOnly:true))
         #else
         let web = WKWebView(frame: .zero, configuration: configuration)
         #endif

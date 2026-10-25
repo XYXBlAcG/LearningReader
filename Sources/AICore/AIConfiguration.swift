@@ -26,6 +26,8 @@ public struct AIProfile: Codable, Equatable, Identifiable, Sendable {
     public var baseURL: String
     public var model: String
     public var supportsImages: Bool
+    public var reasoning: AIReasoning?
+    public var maxOutputTokens: Int?
     public var modelID: String { model.trimmingCharacters(in: .whitespacesAndNewlines) }
     public init(id: UUID = UUID(), name: String = "", api: AIProtocol = .chatCompletions, baseURL: String = AIProtocol.chatCompletions.defaultURL, model: String = "", supportsImages: Bool = false) {
         self.id = id; self.name = name; self.api = api; self.baseURL = baseURL; self.model = model; self.supportsImages = supportsImages
@@ -47,8 +49,7 @@ public struct AIProfile: Codable, Equatable, Identifiable, Sendable {
             suffix = "models/\(name):streamGenerateContent"
         }
         if path != suffix && !path.hasSuffix("/" + suffix) {
-            if path.isEmpty { path = api == .gemini ? "v1beta" : "v1" }
-            path += "/" + suffix
+            path = path.isEmpty ? suffix : path + "/" + suffix
         }
         parts.path = "/" + path
         guard parts.queryItems == nil || (api == .gemini && parts.queryItems == [URLQueryItem(name: "alt", value: "sse")]) else { throw AIError.configuration }
@@ -62,23 +63,40 @@ public struct AISettings: Codable, Equatable, Sendable {
     public var profiles: [AIProfile] = []
     public var textProfileID: UUID?
     public var imageProfileID: UUID?
-    public var textPrompt = AIPrompts.text
+    public var actions: [AISelectionAction] = [.explain]
+    public var askForContext = true
+    public var includeDocumentByDefault = true
     public var imagePrompt = AIPrompts.image
     public var teachingRules = AIPrompts.teaching
     public var formulaRules = AIPrompts.formulas
     public init() { }
     private enum CodingKeys: String, CodingKey {
-        case profiles, textProfileID, imageProfileID, textPrompt, imagePrompt, teachingRules, formulaRules
+        case profiles, textProfileID, imageProfileID, textPrompt, actions, askForContext, includeDocumentByDefault, imagePrompt, teachingRules, formulaRules
     }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         profiles = try values.decode([AIProfile].self, forKey: .profiles)
         textProfileID = try values.decodeIfPresent(UUID.self, forKey: .textProfileID)
         imageProfileID = try values.decodeIfPresent(UUID.self, forKey: .imageProfileID)
-        textPrompt = try values.decode(String.self, forKey: .textPrompt)
+        if let saved = try values.decodeIfPresent([AISelectionAction].self,forKey:.actions) { actions=saved }
+        else { var initial=AISelectionAction.explain; initial.prompt=try values.decodeIfPresent(String.self,forKey:.textPrompt) ?? AIPrompts.text; actions=[initial] }
+        askForContext=try values.decodeIfPresent(Bool.self,forKey:.askForContext) ?? true
+        includeDocumentByDefault=try values.decodeIfPresent(Bool.self,forKey:.includeDocumentByDefault) ?? true
         imagePrompt = try values.decode(String.self, forKey: .imagePrompt)
         teachingRules = try values.decodeIfPresent(String.self, forKey: .teachingRules) ?? AIPrompts.teaching
         formulaRules = try values.decodeIfPresent(String.self, forKey: .formulaRules) ?? AIPrompts.formulas
+    }
+    public func encode(to encoder: Encoder) throws {
+        var values=encoder.container(keyedBy:CodingKeys.self)
+        try values.encode(profiles,forKey:.profiles)
+        try values.encodeIfPresent(textProfileID,forKey:.textProfileID)
+        try values.encodeIfPresent(imageProfileID,forKey:.imageProfileID)
+        try values.encode(actions,forKey:.actions)
+        try values.encode(askForContext,forKey:.askForContext)
+        try values.encode(includeDocumentByDefault,forKey:.includeDocumentByDefault)
+        try values.encode(imagePrompt,forKey:.imagePrompt)
+        try values.encode(teachingRules,forKey:.teachingRules)
+        try values.encode(formulaRules,forKey:.formulaRules)
     }
     public func profile(forImage image: Bool) -> AIProfile? {
         let id = image ? imageProfileID ?? textProfileID : textProfileID

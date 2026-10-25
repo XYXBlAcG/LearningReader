@@ -36,5 +36,33 @@
     return {identity:document.location.href, title:document.title, text, document:content.textContent};
   }
 
-  root.ReaderExplanation = {identity, course, webpage};
+  function bindCourse(current, article, title) {
+    let snapshot=null;
+    function capture() {
+      const owner=current();
+      const value=course(owner,article,title());
+      if (value) snapshot={owner,value};
+      else if (!identity(owner,article) || snapshot?.owner !== owner) snapshot=null;
+      return snapshot?.value || null;
+    }
+    article.ownerDocument.addEventListener('selectionchange',capture);
+    return {material:capture,dispose(){article.ownerDocument.removeEventListener('selectionchange',capture);snapshot=null;}};
+  }
+
+  function bindWebpage(document) {
+    let snapshot=null;
+    function capture() {
+      const value=webpage(document);
+      if (value) {
+        const range=document.getSelection().getRangeAt(0);
+        snapshot={value,start:range.startContainer,end:range.endContainer};
+      }
+      if (snapshot && (snapshot.value.identity !== document.location.href || !snapshot.start.isConnected || !snapshot.end.isConnected)) snapshot=null;
+      return snapshot?.value || null;
+    }
+    document.addEventListener('selectionchange',capture);
+    return {material:capture,dispose(){document.removeEventListener('selectionchange',capture);snapshot=null;}};
+  }
+
+  root.ReaderExplanation = {identity, course, webpage, bindCourse, bindWebpage};
 })(window);

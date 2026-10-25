@@ -18,7 +18,7 @@ public struct AIRequest: Sendable {
         request.timeoutInterval = 120
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        let body: [String: Any]
+        var body: [String: Any]
         switch profile.api {
         case .chatCompletions, .responses:
             request.setValue("Bearer " + key, forHTTPHeaderField: "Authorization")
@@ -54,6 +54,16 @@ public struct AIRequest: Sendable {
             }
             body = ["systemInstruction": ["parts": [["text": system]]], "contents": input]
         }
+        if let limit=profile.maxOutputTokens {
+            guard (1...1_000_000).contains(limit) else { throw AIError.configuration }
+            switch profile.api {
+            case .chatCompletions: body[profile.reasoning?.mode == .deepSeek ? "max_tokens" : "max_completion_tokens"]=limit
+            case .responses: body["max_output_tokens"]=limit
+            case .anthropic: body["max_tokens"]=limit
+            case .gemini: body["generationConfig"]=["maxOutputTokens":limit]
+            }
+        }
+        try profile.reasoning?.apply(to:&body,api:profile.api)
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
     }

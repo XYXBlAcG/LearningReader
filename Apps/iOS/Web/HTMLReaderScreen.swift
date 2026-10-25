@@ -10,7 +10,7 @@ struct HTMLReaderScreen: View {
 
     var body: some View {
         NavigationStack {
-            WebPageView(source: source, state: state, onExplain: { interaction.explain($0, workspace: ai) })
+            WebPageView(source:source,state:state,actions:ai.settings.actions,onAction:{interaction.begin($0,workspace:ai)})
                 .navigationTitle(state.title.isEmpty ? source.title : state.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

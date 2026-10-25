@@ -16,9 +16,10 @@ final class WebPageState: ObservableObject {
 struct WebPageView: UIViewControllerRepresentable {
     let source: WebPageSource
     let state: WebPageState
-    var onExplain: ((AIMaterial) -> Void)? = nil
-    func makeUIViewController(context: Context) -> WebPageController { WebPageController(source: source, state: state, onExplain: onExplain) }
-    func updateUIViewController(_ controller: WebPageController, context: Context) { controller.update(source: source, onExplain: onExplain) }
+    var actions:[AISelectionAction] = [.explain]
+    var onAction: ((AISelectionCommand) -> Void)? = nil
+    func makeUIViewController(context: Context) -> WebPageController { WebPageController(source: source, state: state, actions:actions, onAction:onAction) }
+    func updateUIViewController(_ controller: WebPageController, context: Context) { controller.update(source:source,actions:actions,onAction:onAction) }
     static func dismantleUIViewController(_ controller: WebPageController, coordinator: ()) { controller.close() }
 }
 
@@ -27,20 +28,22 @@ final class WebPageController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private var source: WebPageSource
     private let state: WebPageState
     private var web: ExplainingWebView!
-    private var onExplain: ((AIMaterial) -> Void)?
+    private var onAction: ((AISelectionCommand) -> Void)?
+    private var actions:[AISelectionAction]
     private var observations: [NSKeyValueObservation] = []
     private var cancelDialog: (() -> Void)?
 
-    init(source: WebPageSource, state: WebPageState, onExplain: ((AIMaterial) -> Void)?) {
+    init(source: WebPageSource, state: WebPageState, actions:[AISelectionAction], onAction: ((AISelectionCommand) -> Void)?) {
         self.source = source
         self.state = state
-        self.onExplain = onExplain
+        self.onAction = onAction
+        self.actions=actions
         super.init(nibName: nil, bundle: nil)
     }
 
-    func update(source: WebPageSource, onExplain: ((AIMaterial) -> Void)?) {
-        self.onExplain = onExplain
-        web?.onExplain = onExplain
+    func update(source: WebPageSource, actions:[AISelectionAction], onAction: ((AISelectionCommand) -> Void)?) {
+        self.onAction=onAction; self.actions=actions
+        web?.onAction=onAction; web?.actions=actions
         guard self.source != source else { return }
         self.source = source
         if isViewLoaded { loadSource() }
@@ -53,7 +56,7 @@ final class WebPageController: UIViewController, WKNavigationDelegate, WKUIDeleg
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: source.storageID)
         web = ExplainingWebView(frame: .zero, configuration: configuration)
-        web.onExplain = onExplain
+        web.onAction=onAction; web.actions=actions
         web.navigationDelegate = self
         web.uiDelegate = self
         web.allowsBackForwardNavigationGestures = true

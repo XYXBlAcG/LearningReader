@@ -6,17 +6,16 @@ struct AIHost: ViewModifier {
     @EnvironmentObject private var workspace: AIWorkspace
     func body(content: Content) -> some View {
         content
-            .sheet(item: $interaction.conversation, onDismiss: { interaction.conversation?.stop() }) { conversation in
-                AIConversationView(session: conversation) { interaction.explain($0, workspace: workspace) }
+            .sheet(item: Binding(get:{interaction.invocation},set:{value in
+                if value == nil { interaction.invocation?.cancel() }
+                interaction.invocation=value
+            })) { invocation in
+                AIInvocationView(invocation:invocation,onMaterial:{interaction.explain($0,workspace:workspace)})
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
             .modifier(AIPhotoHost(source: $interaction.media) { interaction.explain($0, workspace: workspace) })
             .sheet(isPresented: $interaction.showSettings) { AISettingsView() }
-            .alert("讲一讲", isPresented: Binding(get: { interaction.issue != nil }, set: { if !$0 { interaction.issue = nil } })) {
-                Button("AI 设置") { interaction.issue = nil; interaction.showSettings = true }
-                Button("知道了", role: .cancel) { interaction.issue = nil }
-            } message: { Text(interaction.issue ?? "") }
     }
 }
 
@@ -46,7 +45,7 @@ struct AIConversationView: View {
                         .accessibilityLabel("发送追问")
                 }.padding()
             }
-            .navigationTitle("讲一讲")
+            .navigationTitle(session.actionTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("完成") { session.stop(); dismiss() } }

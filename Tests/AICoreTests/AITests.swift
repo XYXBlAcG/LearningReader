@@ -102,7 +102,7 @@ final class AITests: XCTestCase {
         var settings = AISettings()
         settings.teachingRules = "只提供启发式问题"
         settings.formulaRules = "使用自定义公式风格"
-        settings.textPrompt = "自定义文字任务"
+        settings.actions[0].prompt = "自定义文字任务"
         settings.imagePrompt = "自定义图片任务"
         for image in [false, true] {
             let prompt = AIPrompts.system(settings: settings, image: image)
@@ -110,7 +110,7 @@ final class AITests: XCTestCase {
             XCTAssertTrue(prompt.contains(settings.formulaRules))
             XCTAssertFalse(prompt.contains("先“直觉”"))
             XCTAssertFalse(prompt.contains("\\frac"))
-            XCTAssertTrue(prompt.contains(image ? settings.imagePrompt : settings.textPrompt))
+            XCTAssertTrue(prompt.contains(image ? settings.imagePrompt : settings.actions[0].prompt))
             for api in AIProtocol.allCases {
                 let request = try AIRequest(profile: AIProfile(name: "T", api: api, baseURL: api.defaultURL, model: "m"), key: "k", system: prompt, messages: [.init(role: .user, text: "question")]).urlRequest()
                 XCTAssertTrue(String(decoding: request.httpBody!, as: UTF8.self).contains(settings.teachingRules))
@@ -127,11 +127,12 @@ final class AITests: XCTestCase {
         object["profiles"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode([profile]))
         object["textProfileID"] = profile.id.uuidString
         object["textPrompt"] = "保留我的提示词"
+        object.removeValue(forKey:"actions")
         object.removeValue(forKey: "teachingRules"); object.removeValue(forKey: "formulaRules")
         let restored = try JSONDecoder().decode(AISettings.self, from: JSONSerialization.data(withJSONObject: object))
         XCTAssertEqual(restored.profiles, [profile])
         XCTAssertEqual(restored.textProfileID, profile.id)
-        XCTAssertEqual(restored.textPrompt, "保留我的提示词")
+        XCTAssertEqual(restored.actions[0].prompt, "保留我的提示词")
         XCTAssertEqual(restored.teachingRules, AIPrompts.teaching)
         XCTAssertEqual(restored.formulaRules, AIPrompts.formulas)
     }

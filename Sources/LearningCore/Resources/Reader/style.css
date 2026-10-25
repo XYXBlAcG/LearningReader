@@ -407,6 +407,7 @@ kbd {
 }
 body.native-host #topbar { display: none; }
 body.native-host #readingProgress { top: 0; }
+body.native-panels #sidebar, body.native-panels #mask, body.native-panels #outline, body.native-panels #outlineResize { display:none !important; }
 
 #readerBody {
   position: relative;
