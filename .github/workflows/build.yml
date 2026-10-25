@@ -21,9 +21,11 @@ jobs:
       - name: Course contract
         run: python3 Tools/generate_contract.py --check
       - name: Reader checks
-        run: node --test Tests/ReaderTests/*.test.cjs
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test Tests/ReaderTests/*.test.cjs
       - name: Core checks
-        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests'
+        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests|AITests|AITransportTests'
       - name: Course templates
         run: |
           swift run course validate Templates/minimal-course

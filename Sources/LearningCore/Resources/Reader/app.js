@@ -75,45 +75,11 @@ function updateNavigation() {
   hostBridge?.publish();
 }
 
-const mathCache = [];
 let mathTypesetQueue = Promise.resolve();
-// 依次匹配：$$..$$、\[..\]、\begin..\end、$..$、\(..\)
-const MATH_RE = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\begin\{[\s\S]+?\\end\{[^}]+\}|\$[^$\n]+?\$|\\\([\s\S]+?\\\)/g;
-const PH = "\u27e6MATH", PH_END = "\u27e7"; // ⟦MATH0⟧
 
 function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-function protectMath(src) {
-  mathCache.length = 0;
-  return src.replace(MATH_RE, (m) => {
-    mathCache.push(m);
-    return PH + (mathCache.length - 1) + PH_END;
-  });
-}
-
-function restoreMath(html) {
-  const template=document.createElement('template');template.innerHTML=html;
-  const pattern=new RegExp(PH+'(\\d+)'+PH_END,'g');
-  const walker=document.createTreeWalker(template.content,NodeFilter.SHOW_TEXT);
-  const texts=[];while(walker.nextNode())texts.push(walker.currentNode);
-  for(const node of texts) {
-    const matches=[...node.data.matchAll(pattern)];if(!matches.length)continue;
-    const fragment=document.createDocumentFragment();let offset=0;
-    for(const match of matches) {
-      fragment.append(node.data.slice(offset,match.index));
-      const source=mathCache[Number(match[1])]??'';
-      fragment.append(node.parentElement?.closest('pre,code')?document.createTextNode(source):ReaderSelectionCopy.mathNode(source));
-      offset=match.index+match[0].length;
-    }
-    fragment.append(node.data.slice(offset));node.replaceWith(fragment);
-  }
-  for(const node of template.content.querySelectorAll('*'))for(const attribute of [...node.attributes]) {
-    node.setAttribute(attribute.name,attribute.value.replace(pattern,(_,i)=>mathCache[Number(i)]??''));
-  }
-  return template.innerHTML;
 }
 
 ReaderSelectionCopy.bind($('article'));
@@ -130,14 +96,11 @@ function typeset() {
 
 async function renderMarkdown(md, anchor = "", snapshot = null) {
   const linkedSource = ReaderKnowledgeGraph.renderWikiLinks(md);
-  const protectedSource = protectMath(linkedSource);
   const isExercise = active && active.kind === "exercise";
-  const source = isExercise
-    ? ReaderExerciseCopy.formatSubquestions(protectedSource) : protectedSource;
-  const html = marked.parse(source, { gfm: true, breaks: false });
+  const html = ReaderMarkdown.render(linkedSource, source => isExercise ? ReaderExerciseCopy.formatSubquestions(source) : source);
   const proseClass = isExercise ? "prose exercise-prose" : "prose";
   ReaderProblemPreviews.dispose();
-  $("article").innerHTML = '<div class="' + proseClass + '">' + DOMPurify.sanitize(restoreMath(html), {FORBID_TAGS:['iframe','form','style'],FORBID_ATTR:['style']}) + "</div>";
+  $("article").innerHTML = '<div class="' + proseClass + '">' + html + "</div>";
   ReaderExerciseCopy.enhance($("article").firstElementChild, isExercise);
   ReaderCodeBlocks.enhance($("article"));
   enhanceLocalMedia($("article"));

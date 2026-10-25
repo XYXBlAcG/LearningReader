@@ -3,5 +3,6 @@
 - [使用指南](使用指南.md)
 - [模型创建课程指南](模型创建课程指南.md)
 - [开发与验收](开发与验收.md)
+- [AI 学习助手入口](AI学习助手.md)
 - [课程协议](../Schemas/course.schema.json)
 - [架构入口](../Sources/LearningCore)

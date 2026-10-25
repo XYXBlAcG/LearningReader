@@ -6,6 +6,7 @@ import AppKit
 typealias PlatformReaderView = NSViewRepresentable
 #else
 import UIKit
+import AICore
 typealias PlatformReaderView = UIViewRepresentable
 #endif
 import LearningCore
@@ -14,6 +15,9 @@ import LearningCore
 final class ReaderController: ObservableObject {
     @Published var state: ReaderWebState?
     weak var webView: WKWebView?
+    #if os(iOS)
+    var onExplain: ((AIMaterial) -> Void)?
+    #endif
 
     func send(_ command: String, payload: [String: String] = [:]) {
         webView?.callAsyncJavaScript("window.MathReaderBridge?.dispatch(command, payload)", arguments: ["command": command, "payload": payload], in: nil, in: .page, completionHandler: nil)
@@ -56,7 +60,13 @@ struct ReaderSurface: PlatformReaderView {
         let identity = "window.READER_SOURCE_ID=" + String(decoding: try! JSONEncoder().encode(sourceID), as: UTF8.self) + ";window.READER_LEGACY=" + (legacy ? "true" : "false") + ";"
         let seed = "window.READER_LEGACY_STATE=" + String(decoding: try! JSONEncoder().encode(legacy ? legacyState : [:]), as: UTF8.self) + ";"
         configuration.userContentController.addUserScript(WKUserScript(source: identity + seed, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        #if os(iOS)
+        let web = ExplainingWebView(frame: .zero, configuration: configuration)
+        web.courseSelection = true
+        web.onExplain = { [weak controller] material in controller?.onExplain?(material) }
+        #else
         let web = WKWebView(frame: .zero, configuration: configuration)
+        #endif
         web.navigationDelegate = context.coordinator
         #if os(iOS)
         web.isOpaque = false

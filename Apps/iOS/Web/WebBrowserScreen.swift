@@ -4,6 +4,8 @@ import WebContent
 struct WebBrowserScreen: View {
     @State private var address: URL
     @StateObject private var state = WebPageState()
+    @StateObject private var interaction = AIInteraction()
+    @EnvironmentObject private var ai: AIWorkspace
     @State private var editingAddress = false
     @Environment(\.dismiss) private var dismiss
 
@@ -11,7 +13,7 @@ struct WebBrowserScreen: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            WebPageView(source: .website(address), state: state).ignoresSafeArea()
+            WebPageView(source: .website(address), state: state, onExplain: { interaction.explain($0, workspace: ai) }).ignoresSafeArea()
             if let issue = state.issue {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle").font(.largeTitle)
@@ -38,6 +40,7 @@ struct WebBrowserScreen: View {
         }
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
+        .modifier(AIHost(interaction: interaction))
         .sheet(isPresented: $editingAddress) {
             WebAddressScreen(initial: state.webView?.url?.absoluteString ?? address.absoluteString, onOpen: {
                 if $0 == address { state.webView?.load(URLRequest(url: $0)) }

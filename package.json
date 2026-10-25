@@ -1,0 +1,6 @@
+{
+  "name": "learningreader-checks",
+  "private": true,
+  "scripts": { "test:ai": "node --test Tests/ReaderTests/ai-markdown.test.cjs" },
+  "devDependencies": { "jsdom": "26.1.0" }
+}

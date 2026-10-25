@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import WebContent
+import AICore
 
 @MainActor
 final class WebPageState: ObservableObject {
@@ -15,8 +16,9 @@ final class WebPageState: ObservableObject {
 struct WebPageView: UIViewControllerRepresentable {
     let source: WebPageSource
     let state: WebPageState
-    func makeUIViewController(context: Context) -> WebPageController { WebPageController(source: source, state: state) }
-    func updateUIViewController(_ controller: WebPageController, context: Context) { controller.update(source: source) }
+    var onExplain: ((AIMaterial) -> Void)? = nil
+    func makeUIViewController(context: Context) -> WebPageController { WebPageController(source: source, state: state, onExplain: onExplain) }
+    func updateUIViewController(_ controller: WebPageController, context: Context) { controller.update(source: source, onExplain: onExplain) }
     static func dismantleUIViewController(_ controller: WebPageController, coordinator: ()) { controller.close() }
 }
 
@@ -24,17 +26,21 @@ struct WebPageView: UIViewControllerRepresentable {
 final class WebPageController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     private var source: WebPageSource
     private let state: WebPageState
-    private var web: WKWebView!
+    private var web: ExplainingWebView!
+    private var onExplain: ((AIMaterial) -> Void)?
     private var observations: [NSKeyValueObservation] = []
     private var cancelDialog: (() -> Void)?
 
-    init(source: WebPageSource, state: WebPageState) {
+    init(source: WebPageSource, state: WebPageState, onExplain: ((AIMaterial) -> Void)?) {
         self.source = source
         self.state = state
+        self.onExplain = onExplain
         super.init(nibName: nil, bundle: nil)
     }
 
-    func update(source: WebPageSource) {
+    func update(source: WebPageSource, onExplain: ((AIMaterial) -> Void)?) {
+        self.onExplain = onExplain
+        web?.onExplain = onExplain
         guard self.source != source else { return }
         self.source = source
         if isViewLoaded { loadSource() }
@@ -46,7 +52,8 @@ final class WebPageController: UIViewController, WKNavigationDelegate, WKUIDeleg
         let configuration = WKWebViewConfiguration()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: source.storageID)
-        web = WKWebView(frame: .zero, configuration: configuration)
+        web = ExplainingWebView(frame: .zero, configuration: configuration)
+        web.onExplain = onExplain
         web.navigationDelegate = self
         web.uiDelegate = self
         web.allowsBackForwardNavigationGestures = true

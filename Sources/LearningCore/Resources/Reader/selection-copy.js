@@ -48,6 +48,15 @@
         const pre=ancestor.parentElement.cloneNode(false);pre.append(wrapper);content.append(pre);
       }else content.append(wrapper);
     }
+    return contentMarkdown(content);
+  }
+
+  function elementMarkdown(element) {
+    const content=document.createDocumentFragment();content.append(element.cloneNode(true));
+    return contentMarkdown(content);
+  }
+
+  function contentMarkdown(content) {
     content.querySelectorAll('[data-math-source]').forEach(node=>node.replaceChildren(document.createTextNode(node.dataset.mathSource)));
     content.querySelectorAll(ignored).forEach(node=>node.remove());
     content.querySelectorAll('details:not([open])').forEach(node=>{
@@ -82,5 +91,5 @@
       pointer=null;
     });
   }
-  root.ReaderSelectionCopy={bind,selectionMarkdown,mathNode};
+  root.ReaderSelectionCopy={bind,selectionMarkdown,elementMarkdown,mathNode};
 })(window);

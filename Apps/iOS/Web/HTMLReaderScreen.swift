@@ -4,11 +4,13 @@ import WebContent
 struct HTMLReaderScreen: View {
     let source: WebPageSource
     @StateObject private var state = WebPageState()
+    @StateObject private var interaction = AIInteraction()
+    @EnvironmentObject private var ai: AIWorkspace
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            WebPageView(source: source, state: state)
+            WebPageView(source: source, state: state, onExplain: { interaction.explain($0, workspace: ai) })
                 .navigationTitle(state.title.isEmpty ? source.title : state.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -26,5 +28,6 @@ struct HTMLReaderScreen: View {
                     Button("知道了") { state.issue = nil }
                 } message: { Text(state.issue ?? "") }
         }
+        .modifier(AIHost(interaction: interaction))
     }
 }

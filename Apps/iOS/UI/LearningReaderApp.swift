@@ -4,9 +4,11 @@ import LearningCore
 @main
 struct LearningReaderApp: App {
     @StateObject private var model = ReaderModel()
+    @StateObject private var ai = AIWorkspace()
     var body: some Scene {
         WindowGroup {
             LearningView(model: model)
+                .environmentObject(ai)
                 .frame(minWidth: 320, minHeight: 420)
                 .preferredColorScheme(.light)
         }
@@ -16,6 +18,8 @@ struct LearningReaderApp: App {
 struct LearningView: View {
     @ObservedObject var model: ReaderModel
     @StateObject private var reader = ReaderController()
+    @StateObject private var interaction = AIInteraction()
+    @EnvironmentObject private var ai: AIWorkspace
     @Environment(\.scenePhase) private var scenePhase
     @State private var courses = false
     @State private var settings = false
@@ -32,7 +36,7 @@ struct LearningView: View {
                         Text(model.selected?.title ?? "知序").font(.title)
                         Text(model.status).font(.callout).foregroundStyle(.secondary)
                         Button("添加或切换课程") { courses = true }.buttonStyle(.borderedProminent)
-                        Button("GitHub 登录与设置") { settings = true }
+                        Button("设置") { settings = true }
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
@@ -48,6 +52,10 @@ struct LearningView: View {
                         Button("搜索", systemImage: "magnifyingglass") { reader.search() }
                         Button("前进", systemImage: "chevron.right") { reader.send("forward") }.disabled(reader.state?.canForward != true)
                         Button("历史记录", systemImage: "clock") { history = true }
+                        Section("讲一讲") {
+                            Button("拍照提问", systemImage: "camera") { interaction.media = .camera }
+                            Button("选择图片", systemImage: "photo") { interaction.media = .library }
+                        }
                         Button("对应笔记或练习", systemImage: "arrow.left.arrow.right") { reader.send("counterpart") }.disabled(reader.state?.counterpart.isEmpty != false)
                         Button(reader.state?.pinned == true ? "取消置顶" : "置顶本页", systemImage: "pin") { reader.send("pin") }
                         Section("阅读") {
@@ -60,7 +68,7 @@ struct LearningView: View {
                         Section {
                             Button("刷新课程", systemImage: "arrow.clockwise") { model.sync() }.disabled(model.syncing || model.selected == nil)
                             Button("课程仓库", systemImage: "books.vertical") { courses = true }
-                            Button("GitHub 设置", systemImage: "gearshape") { settings = true }
+                            Button("设置", systemImage: "gearshape") { settings = true }
                         }
                     } label: { Image(systemName: "ellipsis.circle") }.help("阅读与同步设置")
                 }
@@ -74,16 +82,20 @@ struct LearningView: View {
                 }.padding(.horizontal, 14).padding(.vertical, 7).background(.bar)
             }
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
-            .sheet(isPresented: $settings) { ConnectionView(model: model) }
+            .sheet(isPresented: $settings) { AppSettingsView(model: model) }
             .sheet(isPresented: $history) { ReadingHistoryView(reader: reader) }
             .alert("知序", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) {
                 Button("知道了") { model.issue = nil }
             } message: { Text(model.issue ?? "") }
-            .task { await model.start() }
+            .task {
+                reader.onExplain = { interaction.explain($0, workspace: ai) }
+                await model.start()
+            }
             .onChange(of: model.library.selectedID) { _ in reader.state = nil }
             .onChange(of: scenePhase) { value in if value == .active { model.sync(automatic: true) } }
         }
         .tint(Color(red: 0.06, green: 0.59, blue: 0.46))
+        .modifier(AIHost(interaction: interaction))
     }
 }
 
