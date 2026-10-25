@@ -35,7 +35,7 @@ final class ReaderController: ObservableObject {
     }
     func searchNative(_ query:String) async throws -> [ReaderSearchResult] {
         guard let webView else { throw ReaderError.missingContent }
-        let raw=try await webView.readerJavaScript("return window.MathReaderBridge.search(query)",arguments:["query":query])
+        let raw=try await webView.readerJavaScript("return window.MathReaderBridge.search(query)",arguments:["query":query],world:.page)
         guard let raw else { throw ReaderError.invalidIndex }
         return try JSONDecoder().decode([ReaderSearchResult].self,from:JSONSerialization.data(withJSONObject:raw))
     }
