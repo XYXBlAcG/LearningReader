@@ -29,7 +29,7 @@ struct StudyLibraryView:View {
     var body:some View {
         NavigationStack {
             List(selection:$selection) {
-                if courseID != nil { Toggle("显示全部课程",isOn:$allCourses) }
+                if courseID != nil && source == nil { Toggle("显示全部课程",isOn:$allCourses) }
                 if library.canUndo {Button("撤销删除",systemImage:"arrow.uturn.backward"){library.undo()} }
                 ForEach(filtered) { record in
                     NavigationLink(value:record.id) {
@@ -144,7 +144,7 @@ struct SavedStudyView:View {
                     catch{library.issue=error.localizedDescription}
                 }
             }
-            if ai.settings.profiles.isEmpty {Button("请先在设置添加 AI 服务"){}}
+            Button("AI 设置"){interaction.showSettings=true}
         }
         .fileExporter(isPresented:$exporting,document:document,contentType:contentType,defaultFilename:contentType == .zip ? "LearningReader-Study.zip":"LearningReader-Study.md"){result in if case .failure(let error)=result {library.issue=error.localizedDescription}}
         .alert("本地讲解",isPresented:Binding(get:{library.issue != nil},set:{if !$0 {library.issue=nil}})){Button("知道了"){library.issue=nil}}message:{Text(library.issue ?? "")}

@@ -9,7 +9,7 @@ settings:
     SWIFT_VERSION: "5.0"
     CODE_SIGNING_ALLOWED: NO
     MARKETING_VERSION: "2.6"
-    CURRENT_PROJECT_VERSION: "9"
+    CURRENT_PROJECT_VERSION: "10"
 packages:
   LearningCore:
     path: ../..

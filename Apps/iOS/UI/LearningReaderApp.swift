@@ -38,7 +38,10 @@ struct LearningView: View {
             if let snapshot=model.snapshot {
                 NativeCourseSidebar(snapshot:snapshot,reader:reader,onCourses:{courses=true},onStudies:{localStudies=true},onOpen:open).id(snapshot.id)
             } else {
-                List { Button("课程仓库",systemImage:"books.vertical") { courses=true } }.navigationTitle("课程目录")
+                List {
+                    Button("课程仓库",systemImage:"books.vertical") { courses=true }
+                    Button("本地讲解",systemImage:"tray.full") { localStudies=true }
+                }.navigationTitle("课程目录")
             }
         } detail: {
             Group {
@@ -70,6 +73,7 @@ struct LearningView: View {
                         Button("搜索", systemImage: "magnifyingglass") { compactColumn = .sidebar;columns = .all }
                         Button("前进", systemImage: "chevron.right") { reader.send("forward") }.disabled(reader.state?.canForward != true)
                         Button("历史记录", systemImage: "clock") { history = true }
+                        Button("本地讲解",systemImage:"tray.full") {localStudies=true}
                         Section("讲一讲") {
                             Button("拍照提问", systemImage: "camera") { interaction.media = .camera }
                             Button("选择图片", systemImage: "photo") { interaction.media = .library }
