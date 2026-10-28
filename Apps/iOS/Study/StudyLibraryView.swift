@@ -11,7 +11,7 @@ struct StudyLibraryView:View {
     @EnvironmentObject private var library:StudyWorkspace
     @Environment(\.dismiss) private var dismiss
     @State private var query=""
-    @State private var allCourses=false
+    @State private var allCourses=true
     @State private var selection=Set<UUID>()
     @State private var renaming:StudySummary?
     @State private var title=""
@@ -22,7 +22,7 @@ struct StudyLibraryView:View {
         library.records.filter {record in
             (allCourses || courseID==nil || record.source?.courseID==courseID)
             && (question==nil || record.questionDigest==StudySource.hash(question ?? ""))
-            && (source==nil || (record.source?.path==source?.path && record.source?.anchor==source?.anchor))
+            && (source==nil || (record.source?.courseID==source?.courseID && record.source?.path==source?.path && record.source?.anchor==source?.anchor))
             && (query.isEmpty || (record.title+record.searchText).localizedCaseInsensitiveContains(query))
         }
     }
@@ -35,7 +35,8 @@ struct StudyLibraryView:View {
                     NavigationLink(value:record.id) {
                         VStack(alignment:.leading,spacing:5) {
                             Text(record.title).lineLimit(2)
-                            Text(record.updatedAt,style:.date).font(.caption).foregroundStyle(.secondary)
+                            Text(record.source.map{$0.kind=="web" ? URL(string:$0.path)?.host ?? "网页" : ($0.path as NSString).lastPathComponent} ?? "本地提问").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(record.updatedAt.formatted(date:.abbreviated,time:.shortened)).font(.caption).foregroundStyle(.secondary)
                         }
                     }.tag(record.id)
                     .swipeActions(edge:.leading){Button("删除",role:.destructive){library.delete([record.id])}}

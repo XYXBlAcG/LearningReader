@@ -48,6 +48,7 @@ struct ReferenceStudy:Identifiable {
     let id=UUID()
     let questions:[StudyQuestion]
     let document:String
+    let selectedID:String
 }
 
 struct ReferenceStudyView:View {
@@ -58,6 +59,10 @@ struct ReferenceStudyView:View {
     @State private var selected=0
     @StateObject private var interaction=AIInteraction()
     @State private var saved=false
+    init(study:ReferenceStudy){
+        self.study=study
+        _selected=State(initialValue:study.questions.firstIndex{$0.id==study.selectedID} ?? 0)
+    }
     var body:some View {
         NavigationStack {
             if !study.questions.isEmpty {
@@ -76,7 +81,7 @@ struct ReferenceStudyView:View {
                         Spacer()
                         Button("讲一讲"){
                             var source=item.source
-                            interaction.explain(.init(title:item.label,text:item.question,document:study.document,question:item.question,source:source),workspace:ai)
+                            interaction.explain(.init(title:item.label,text:item.request,document:study.document,question:item.question,source:source),workspace:ai)
                         }
                         if library.records.contains(where:{$0.questionDigest==StudySource.hash(item.question) && $0.source?.courseID==item.source?.courseID && $0.source?.path==item.source?.path && $0.source?.anchor==item.source?.anchor}) { Button("已有讲解"){saved=true} }
                         Spacer()

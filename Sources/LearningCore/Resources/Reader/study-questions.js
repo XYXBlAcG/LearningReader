@@ -28,12 +28,13 @@
    const exact=answers.filter(a=>a.number===q.number&&a.section===q.section);
    const unique=answers.filter(a=>a.number===q.number);
    const duplicate=questions.filter(x=>x.number===q.number).length;
-   const answer=exact.length===1?exact[0]:unique.length===1&&duplicate===1?unique[0]:null;
+   const same=questions.filter(x=>x.section===q.section&&x.number===q.number).length;
+   const answer=same===1&&exact.length===1?exact[0]:unique.length===1&&duplicate===1?unique[0]:null;
    const id='study-'+encodeURIComponent(q.section)+'-'+q.number+(questions.filter(x=>x.section===q.section&&x.number===q.number).length>1?'-'+index:'');
    q.nodes.forEach(n=>n.dataset.studyQuestion=id);
    const anchor=article.ownerDocument.createElement('span');anchor.id=id;anchor.setAttribute('data-copy-ignore','');q.nodes[0].prepend(anchor);
    if(answer)answer.nodes.forEach(n=>n.dataset.studyAnswer=id);
-   return {id,label:[q.section,'第 '+q.number+' 题'].filter(Boolean).join(' · '),number:q.number,question:q.markdown,answer:answer?.markdown||'',anchor:id};
+   return {id,label:[q.section,'第 '+q.number+' 题'].filter(Boolean).join(' · '),number:q.number,question:q.markdown,request:q.markdown,answer:answer?.markdown||'',anchor:id};
   });
 
  }

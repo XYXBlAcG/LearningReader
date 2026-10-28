@@ -18,7 +18,7 @@ final class ReaderController: ObservableObject {
     #if os(iOS)
     var loadedSourceID:String?
     var pendingOpen:(String,ReaderDocumentTarget)?
-    var onReference:(([StudyQuestion],String)->Void)?
+    var onReference:(([StudyQuestion],String,String)->Void)?
     var onSelection: ((AISelectionCommand) -> Void)?
     var selectionActions: [AISelectionAction] = [.explain] {
         didSet { (webView as? ExplainingWebView)?.actions=selectionActions }
@@ -160,7 +160,7 @@ struct ReaderSurface: PlatformReaderView {
                     for index in questions.indices {
                         questions[index].source=StudySource(courseID:"",kind:controller.state?.documentKind ?? "exercise",path:controller.state?.path ?? "",anchor:questions[index].anchor,fingerprint:StudySource.hash(body["document"] as? String ?? ""))
                     }
-                    controller.onReference?(questions,body["document"] as? String ?? "")
+                    controller.onReference?(questions,body["document"] as? String ?? "",body["selectedID"] as? String ?? "")
                 } catch { onError(error.localizedDescription) }
                 return
             }

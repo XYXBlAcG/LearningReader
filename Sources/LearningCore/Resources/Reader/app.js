@@ -104,7 +104,14 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
   $("article").innerHTML = '<div class="' + proseClass + '">' + html + "</div>";
   studyQuestions=isExercise?ReaderStudyQuestions.build($("article").firstElementChild):[];
   if(active)active.questions=studyQuestions;
+
   ReaderExerciseCopy.enhance($("article").firstElementChild, isExercise);
+  if(window.READER_NATIVE_PANELS)for(const item of studyQuestions){
+    const target=document.getElementById(item.anchor)?.parentElement;
+    if(!target)continue;
+    const button=document.createElement('button');button.type='button';button.className='study-open text-btn';button.textContent='对照';
+    button.onclick=()=>openReferenceStudy(button,item.id);target.prepend(button);
+  }
   ReaderCodeBlocks.enhance($("article"));
   enhanceLocalMedia($("article"));
   setupCollapsibleReferences($("article"));
@@ -135,6 +142,16 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
 /* ---------- 本地图片、视频与交互可视化 ---------- */
 function encodeMediaPath(path) {
   return "/media/" + path.split("/").map(encodeURIComponent).join("/");
+}
+
+async function openReferenceStudy(button,selectedID=''){
+  button.disabled=true;
+  const owner=active;
+  try{
+    const questions=await Promise.all(studyQuestions.map(async item=>({...item,question:await studyAssets(item.question),answer:await studyAssets(item.answer)})));
+    if(owner===active)window.webkit.messageHandlers.mathReader.postMessage({type:'study',questions,document:active.source,selectedID});
+  }catch(error){showNavigationError(String(error));}
+  finally{button.disabled=false;}
 }
 
 function studyAssets(markdown){return ReaderStudyQuestions.assets(markdown,src=>{if(src.startsWith('/media/'))return src;const path=localMediaPath(src);return path?encodeMediaPath(path):null;});}
@@ -345,16 +362,7 @@ function setupCollapsibleReferences(root) {
     btn.innerHTML = '<span class="caret">▶</span><span>' +
       escHtml((h.textContent || "").trim()) + "</span>";
     btn.onclick = async () => {
-      if(window.READER_NATIVE_PANELS && studyQuestions.length){
-        btn.disabled=true;
-        const owner=active;
-        try{
-          const questions=await Promise.all(studyQuestions.map(async item=>({...item,question:await studyAssets(item.question),answer:await studyAssets(item.answer)})));
-          if(owner===active)window.webkit.messageHandlers.mathReader.postMessage({type:'study',questions,document:active.source});
-        }catch(error){showNavigationError(String(error));}
-        finally{btn.disabled=false;}
-        return;
-      }
+      if(window.READER_NATIVE_PANELS && studyQuestions.length){await openReferenceStudy(btn);return;}
       body.classList.toggle("open");
       btn.classList.toggle("open", body.classList.contains("open"));
       saveScroll();

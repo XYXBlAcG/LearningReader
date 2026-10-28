@@ -23,6 +23,7 @@ test('keeps original non-one numbering and marks ambiguous answers',()=>{
 
 test('heading questions keep nested explanations and stable subject-number anchors',()=>{
  const first=read('## 题目\n\n### 第 7 题\n\n**完整条件**\n\n$$\nx=1\n$$\n\n## 参考答案\n\n### 第 7 题\n\n#### 直觉\n\n完整解释\n\n#### 严谨过程\n\n证明');
+ const repeated=read('## 题目\n\n### 第 7 题\n\nA\n\n### 第 7 题\n\nB\n\n## 参考答案\n\n### 第 7 题\n\n只有一个答案');
  const second=read('## 题目\n\n### 第 6 题\n\n其他问题\n\n### 第 7 题\n\n**完整条件**\n\n$$\nx=1\n$$\n\n## 参考答案\n\n### 第 7 题\n\n解答');
- try{assert.match(first.items[0].answer,/直觉/);assert.match(first.items[0].answer,/严谨过程/);assert.equal(first.items[0].anchor,second.items[1].anchor);assert.match(first.items[0].question,/\*\*完整条件\*\*/);}finally{first.dom.window.close();second.dom.window.close();}
+ try{assert.ok(repeated.items.every(x=>!x.answer));assert.match(first.items[0].answer,/直觉/);assert.match(first.items[0].answer,/严谨过程/);assert.equal(first.items[0].anchor,second.items[1].anchor);assert.match(first.items[0].question,/\*\*完整条件\*\*/);}finally{first.dom.window.close();second.dom.window.close();repeated.dom.window.close();}
 });

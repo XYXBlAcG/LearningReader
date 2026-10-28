@@ -124,10 +124,10 @@ struct LearningView: View {
                         compactColumn = .detail
                     }
                 }
-                reader.onReference={items,document in
+                reader.onReference={items,document,selectedID in
                     var questions=items
                     for index in questions.indices {questions[index].source?.courseID=model.selected?.id ?? ""}
-                    reference=ReferenceStudy(questions:questions,document:document)
+                    reference=ReferenceStudy(questions:questions,document:document,selectedID:selectedID)
                 }
                 reader.onSelection = { interaction.begin($0, workspace: ai) }
                 reader.selectionActions=ai.settings.actions

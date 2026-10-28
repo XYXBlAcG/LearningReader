@@ -60,6 +60,7 @@ public struct StudyQuestion:Codable,Identifiable,Sendable {
     public let id:String
     public let label:String
     public var question:String
+    public let request:String
     public var answer:String
     public var anchor:String
     public var source:StudySource?
