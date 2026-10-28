@@ -18,6 +18,10 @@ public final class AIInvocation: ObservableObject, Identifiable {
     public init(action: AISelectionAction, askForContext: Bool, includeDocument: Bool) {
         self.action=action; self.askForContext=askForContext; self.includeDocument=includeDocument
     }
+    public init(conversation:AIConversation) {
+        action=conversation.record.action;askForContext=false;includeDocument=true
+        preparing=false;self.conversation=conversation
+    }
     public func prepare(timeoutNanoseconds: UInt64 = 8_000_000_000, load: @escaping @MainActor () async throws -> AIMaterial) {
         reading?.cancel(); deadline?.cancel()
         reading = Task { [weak self] in

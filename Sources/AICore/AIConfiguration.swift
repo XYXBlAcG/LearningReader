@@ -64,6 +64,7 @@ public struct AISettings: Codable, Equatable, Sendable {
     public var textProfileID: UUID?
     public var imageProfileID: UUID?
     public var actions: [AISelectionAction] = [.explain]
+    public var autoSaveExplanations = true
     public var askForContext = true
     public var includeDocumentByDefault = true
     public var imagePrompt = AIPrompts.image
@@ -71,7 +72,7 @@ public struct AISettings: Codable, Equatable, Sendable {
     public var formulaRules = AIPrompts.formulas
     public init() { }
     private enum CodingKeys: String, CodingKey {
-        case profiles, textProfileID, imageProfileID, textPrompt, actions, askForContext, includeDocumentByDefault, imagePrompt, teachingRules, formulaRules
+        case autoSaveExplanations, profiles, textProfileID, imageProfileID, textPrompt, actions, askForContext, includeDocumentByDefault, imagePrompt, teachingRules, formulaRules
     }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -80,6 +81,7 @@ public struct AISettings: Codable, Equatable, Sendable {
         imageProfileID = try values.decodeIfPresent(UUID.self, forKey: .imageProfileID)
         if let saved = try values.decodeIfPresent([AISelectionAction].self,forKey:.actions) { actions=saved }
         else { var initial=AISelectionAction.explain; initial.prompt=try values.decodeIfPresent(String.self,forKey:.textPrompt) ?? AIPrompts.text; actions=[initial] }
+        autoSaveExplanations=try values.decodeIfPresent(Bool.self,forKey:.autoSaveExplanations) ?? true
         askForContext=try values.decodeIfPresent(Bool.self,forKey:.askForContext) ?? true
         includeDocumentByDefault=try values.decodeIfPresent(Bool.self,forKey:.includeDocumentByDefault) ?? true
         imagePrompt = try values.decode(String.self, forKey: .imagePrompt)
@@ -88,6 +90,7 @@ public struct AISettings: Codable, Equatable, Sendable {
     }
     public func encode(to encoder: Encoder) throws {
         var values=encoder.container(keyedBy:CodingKeys.self)
+        try values.encode(autoSaveExplanations,forKey:.autoSaveExplanations)
         try values.encode(profiles,forKey:.profiles)
         try values.encodeIfPresent(textProfileID,forKey:.textProfileID)
         try values.encodeIfPresent(imageProfileID,forKey:.imageProfileID)

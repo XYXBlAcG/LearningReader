@@ -41,6 +41,9 @@ struct AISettingsView: View {
                     NavigationLink("长按菜单操作") { AIActionSettingsView() }
                     NavigationLink("讲解提示词") { AIPromptEditor() }
                 }
+                Section("本地讲解") {
+                    Toggle("自动保存讲解",isOn:Binding(get:{workspace.settings.autoSaveExplanations},set:{value in var settings=workspace.settings;settings.autoSaveExplanations=value;workspace.update(settings)}))
+                }
                 Section("文章上下文") {
                     Toggle("每次询问是否使用全文",isOn:Binding(get:{workspace.settings.askForContext},set:{value in var settings=workspace.settings;settings.askForContext=value;workspace.update(settings)}))
                     Toggle("默认使用整篇文章",isOn:Binding(get:{workspace.settings.includeDocumentByDefault},set:{value in var settings=workspace.settings;settings.includeDocumentByDefault=value;workspace.update(settings)}))

@@ -48,7 +48,7 @@ final class ExplainingWebView: WKWebView {
         guard window != nil, url == expectedURL else { throw AISelectionError.documentChanged }
         if let bootstrapIssue, !courseSelection { throw AIError.generation("加载选区脚本："+bootstrapIssue) }
         let script = courseSelection
-            ? "if(!window.MathReaderBridge) throw new Error('阅读器桥接未就绪'); return window.MathReaderBridge.material()"
+            ? "if(!window.MathReaderBridge) throw new Error('阅读器桥接未就绪'); return await window.MathReaderBridge.prepareMaterial(window.MathReaderBridge.material())"
             : "if(!window.ReaderPageSelection) throw new Error('选区脚本未就绪'); return window.ReaderPageSelection.material()"
         let world:WKContentWorld=courseSelection ? .page : .defaultClient
         let raw=try await readerJavaScript(script,world:world)
@@ -58,6 +58,7 @@ final class ExplainingWebView: WKWebView {
         let check = courseSelection ? "return window.MathReaderBridge?.identity() || ''" : "return document.location.href"
         let identity=try await readerJavaScript(check,world:world)
         guard window != nil, url == expectedURL, identity as? String == documentID else { throw AISelectionError.documentChanged }
-        return AIMaterial(title:data["title"] ?? "阅读内容",text:text,document:document)
+        let source=StudySource(courseID:data["courseID"] ?? "",kind:data["kind"] ?? "web",path:data["path"] ?? expectedURL?.absoluteString ?? "",anchor:data["anchor"] ?? "",fingerprint:StudySource.hash(document))
+        return AIMaterial(title:data["title"] ?? "阅读内容",text:text,document:document,question:data["question"],source:source)
     }
 }

@@ -6,6 +6,7 @@ final class AIWorkspace: ObservableObject {
     static let keyService = "chatgpt.nice114514.MathLearning.ai"
     @Published private(set) var settings = AISettings()
     @Published var issue: String?
+    let study=StudyWorkspace()
     private let store: AISettingsStore
 
     init() {
@@ -59,8 +60,22 @@ final class AIWorkspace: ObservableObject {
         guard let profile = settings.profile(forImage: material.image != nil) else {
             throw material.image == nil ? AIError.configuration : AIError.imageUnsupported
         }
-        return AIConversation(title:material.title,profile:profile,key:try key(for:profile),system:AIPrompts.system(settings:settings,image:material.image != nil,action:action),initial:try material.message(includeDocument:includeDocument),actionTitle:action.title)
+        let session=AIConversation(title:material.title,profile:profile,key:try key(for:profile),system:AIPrompts.system(settings:settings,image:material.image != nil,action:action),initial:try material.message(includeDocument:includeDocument),actionTitle:action.title,material:material,action:action)
+        track(session)
+        return session
     }
+    func resume(_ record:StudyRecord,profile:AIProfile,versionID:UUID?=nil) throws -> AIConversation {
+        let session=AIConversation(title:record.title,profile:profile,key:try key(for:profile),system:record.system,initial:record.initial,restored:record,selectedVersionID:versionID)
+        track(session)
+        return session
+    }
+    private func track(_ session:AIConversation) {
+        session.onUpdate={ [weak self] record in
+            guard let self else {return}
+            self.study.receive(record,automatic:self.settings.autoSaveExplanations)
+        }
+    }
+
 }
 
 @MainActor
@@ -70,6 +85,10 @@ final class AIInteraction: ObservableObject {
     @Published var media: AIImageSource?
     func explain(_ material: AIMaterial, workspace: AIWorkspace) {
         begin(AISelectionCommand(action:.explain,load:{material}),workspace:workspace)
+    }
+    func resume(_ record:StudyRecord,profile:AIProfile,workspace:AIWorkspace,versionID:UUID?=nil) throws {
+        invocation?.cancel()
+        invocation=AIInvocation(conversation:try workspace.resume(record,profile:profile,versionID:versionID))
     }
     func begin(_ command:AISelectionCommand,workspace:AIWorkspace) {
         invocation?.cancel()

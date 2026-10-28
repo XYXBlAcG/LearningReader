@@ -26,7 +26,7 @@ jobs:
           node Tools/build_reader_vendor.mjs --check
           node --test Tests/ReaderTests/*.test.cjs
       - name: Core checks
-        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests|AITests|AITransportTests|AISelectionTests|CourseNavigationTests'
+        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests|AITests|AITransportTests|AISelectionTests|CourseNavigationTests|StudyRecordTests|StudyLibraryTests'
       - name: Course templates
         run: |
           swift run course validate Templates/minimal-course

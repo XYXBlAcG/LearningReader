@@ -11,7 +11,7 @@ struct AIHost: ViewModifier {
                 interaction.invocation=value
             })) { invocation in
                 AIInvocationView(invocation:invocation,onMaterial:{interaction.explain($0,workspace:workspace)})
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
             .modifier(AIPhotoHost(source: $interaction.media) { interaction.explain($0, workspace: workspace) })
@@ -23,6 +23,8 @@ struct AIConversationView: View {
     @ObservedObject var session: AIConversation
     let onMaterial: (AIMaterial) -> Void
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var library:StudyWorkspace
+    @Environment(\.scenePhase) private var phase
     @State private var question = ""
     @State private var media: AIImageSource?
     @State private var renderingIssue: String?
@@ -34,7 +36,15 @@ struct AIConversationView: View {
                     Spacer()
                     Text(session.profile.model).lineLimit(1)
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal).padding(.vertical, 8)
-                AIAnswerView(markdown: transcript, onIssue: { renderingIssue = $0 })
+                StudyComparisonView(question:session.record.question,image:session.record.initial.image) {
+                    MarkdownContentView(markdown:transcript,followsOutput:true,onIssue:{renderingIssue=$0})
+                }
+                HStack {
+                    Text(library.saving.contains(session.id) ? "正在保存到本地":library.records.contains(where:{$0.id==session.id}) ? "已保存到本地，后续追问自动更新":"未保存到本地").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("保存"){library.save(session.record)}.disabled(!session.record.hasAnswer)
+                }.padding(.horizontal)
+                if let issue=library.issue { Text(issue).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).padding(.horizontal) }
                 if session.running { HStack { ProgressView().controlSize(.small); Text("正在讲解").font(.caption); Spacer(); Button("停止") { session.stop() } }.padding(.horizontal).padding(.vertical, 8) }
                 if let issue = session.issue { Text(issue).font(.callout).foregroundStyle(.secondary).textSelection(.enabled).padding(.horizontal) }
                 if let renderingIssue { Text(renderingIssue).font(.callout).foregroundStyle(.secondary).textSelection(.enabled).padding(.horizontal) }
@@ -51,6 +61,7 @@ struct AIConversationView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("完成") { session.stop(); dismiss() } }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
+                        Button("保存到本地",systemImage:"square.and.arrow.down"){library.save(session.record)}.disabled(!session.record.hasAnswer)
                         Button("复制回答", systemImage: "doc.on.doc") { UIPasteboard.general.string = session.answer }.disabled(session.answer.isEmpty)
                         Button("重新讲解", systemImage: "arrow.clockwise") { session.retry() }.disabled(session.running)
                         Button("拍照提问", systemImage: "camera") { session.stop(); media = .camera }
@@ -59,11 +70,11 @@ struct AIConversationView: View {
                 }
             }
             .modifier(AIPhotoHost(source: $media, onMaterial: onMaterial))
-            .onDisappear { session.stop() }
+            .onDisappear { session.stop();library.flush(session.id) }
+            .onChange(of:phase){ if phase != .active {library.flush(session.id)} }
         }
     }
     private var transcript: String {
-        let previous = session.messages.dropFirst().map { $0.role == .assistant ? $0.text : "\n\n---\n\n**追问**\n\n" + $0.text }
-        return (previous + [session.answer]).joined(separator: "\n\n")
+        session.transcript
     }
 }

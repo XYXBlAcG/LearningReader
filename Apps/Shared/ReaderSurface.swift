@@ -16,6 +16,9 @@ final class ReaderController: ObservableObject {
     @Published var state: ReaderWebState?
     weak var webView: WKWebView?
     #if os(iOS)
+    var loadedSourceID:String?
+    var pendingOpen:(String,ReaderDocumentTarget)?
+    var onReference:(([StudyQuestion],String)->Void)?
     var onSelection: ((AISelectionCommand) -> Void)?
     var selectionActions: [AISelectionAction] = [.explain] {
         didSet { (webView as? ExplainingWebView)?.actions=selectionActions }
@@ -49,7 +52,7 @@ struct ReaderSurface: PlatformReaderView {
     @ObservedObject var controller: ReaderController
     let onError: (String) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(snapshot: snapshot, controller: controller, onError: onError) }
+    func makeCoordinator() -> Coordinator { Coordinator(snapshot: snapshot, sourceID:sourceID, controller: controller, onError: onError) }
 
     #if os(macOS)
     func makeNSView(context: Context) -> WKWebView { makeWebView(context: context) }
@@ -74,6 +77,7 @@ struct ReaderSurface: PlatformReaderView {
         configuration.userContentController.addUserScript(WKUserScript(source: identity + seed, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         #if os(iOS)
         let web = ExplainingWebView(frame: .zero, configuration: configuration)
+        controller.loadedSourceID=sourceID
         web.courseSelection = true
         web.actions=controller.selectionActions
         web.onAction = { [weak controller] command in
@@ -106,10 +110,12 @@ struct ReaderSurface: PlatformReaderView {
 
     final class Coordinator: NSObject, WKURLSchemeHandler, WKNavigationDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
         let snapshot: CourseSnapshot
+        let sourceID:String
         let controller: ReaderController
         let onError: (String) -> Void
 
-        init(snapshot: CourseSnapshot, controller: ReaderController, onError: @escaping (String) -> Void) {
+        init(snapshot: CourseSnapshot, sourceID:String, controller: ReaderController, onError: @escaping (String) -> Void) {
+            self.sourceID=sourceID
             self.snapshot = snapshot
             self.controller = controller
             self.onError = onError
@@ -145,12 +151,31 @@ struct ReaderSurface: PlatformReaderView {
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            #if os(iOS)
+            if message.webView === controller.webView,message.frameInfo.isMainFrame,
+               message.frameInfo.request.url?.scheme=="mathreader",message.frameInfo.request.url?.host=="local",
+               let body=message.body as? [String:Any],body["type"] as? String=="study" {
+                do {
+                    var questions=try JSONDecoder().decode([StudyQuestion].self,from:JSONSerialization.data(withJSONObject:body["questions"] ?? []))
+                    for index in questions.indices {
+                        questions[index].source=StudySource(courseID:"",kind:controller.state?.documentKind ?? "exercise",path:controller.state?.path ?? "",anchor:questions[index].anchor,fingerprint:StudySource.hash(body["document"] as? String ?? ""))
+                    }
+                    controller.onReference?(questions,body["document"] as? String ?? "")
+                } catch { onError(error.localizedDescription) }
+                return
+            }
+            #endif
             guard message.webView === controller.webView, message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader",
                   message.frameInfo.request.url?.host == "local", message.frameInfo.request.url?.path == "/reader/index.html",
                   let body = message.body as? [String: Any], body["type"] as? String == "state",
                   let raw = body["state"], let data = try? JSONSerialization.data(withJSONObject: raw),
                   let state = try? JSONDecoder().decode(ReaderWebState.self, from: data) else { return }
             controller.state = state
+            #if os(iOS)
+            if let pending=controller.pendingOpen,pending.0==sourceID,state.hasDocument {
+                controller.pendingOpen=nil;controller.open(pending.1)
+            }
+            #endif
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

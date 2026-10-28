@@ -24,14 +24,14 @@ public enum AIPrompts {
     }
 }
 
-public struct AIImage: Equatable, Sendable {
+public struct AIImage: Codable, Equatable, Sendable {
     public let data: Data
     public let mimeType: String
     public init(data: Data, mimeType: String) { self.data = data; self.mimeType = mimeType }
 }
 
-public struct AIMessage: Equatable, Sendable {
-    public enum Role: String, Sendable { case user, assistant }
+public struct AIMessage: Codable, Equatable, Sendable {
+    public enum Role: String, Codable, Sendable { case user, assistant }
     public let role: Role
     public var text: String
     public let image: AIImage?
@@ -43,8 +43,10 @@ public struct AIMaterial: Sendable {
     public let text: String
     public let document: String
     public let image: AIImage?
-    public init(title: String, text: String, document: String = "", image: AIImage? = nil) {
-        self.title = String(title.prefix(300)); self.text = text; self.document = document; self.image = image
+    public let question:String?
+    public let source:StudySource?
+    public init(title: String, text: String, document: String = "", image: AIImage? = nil, question:String? = nil, source:StudySource? = nil) {
+        self.title = String(title.prefix(300)); self.text = text; self.document = document; self.image = image; self.question=question;self.source=source
     }
     public func message(includeDocument: Bool = true) throws -> AIMessage {
         guard image != nil || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AIError.empty }

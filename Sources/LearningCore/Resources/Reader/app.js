@@ -29,6 +29,7 @@ let outlineWidth = parseFloat(readerStorage.getItem("reader_outline_width") || "
 let restoreScrollTop = 0;
 let scrollSaveTimer = 0;
 let graphView = null;
+let studyQuestions=[];
 const navigation = new ReaderNavigation(history, readerStorage, readerSessionStorage);
 let navigationRequest = 0;
 let navigationAbort = null;
@@ -101,6 +102,8 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
   const proseClass = isExercise ? "prose exercise-prose" : "prose";
   ReaderProblemPreviews.dispose();
   $("article").innerHTML = '<div class="' + proseClass + '">' + html + "</div>";
+  studyQuestions=isExercise?ReaderStudyQuestions.build($("article").firstElementChild):[];
+  if(active)active.questions=studyQuestions;
   ReaderExerciseCopy.enhance($("article").firstElementChild, isExercise);
   ReaderCodeBlocks.enhance($("article"));
   enhanceLocalMedia($("article"));
@@ -133,6 +136,8 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
 function encodeMediaPath(path) {
   return "/media/" + path.split("/").map(encodeURIComponent).join("/");
 }
+
+function studyAssets(markdown){return ReaderStudyQuestions.assets(markdown,src=>{if(src.startsWith('/media/'))return src;const path=localMediaPath(src);return path?encodeMediaPath(path):null;});}
 
 function localMediaPath(src) {
   if (!src || /^(?:https?:|data:|blob:|#)/i.test(src)) return null;
@@ -339,11 +344,26 @@ function setupCollapsibleReferences(root) {
     btn.className = "ref-toggle";
     btn.innerHTML = '<span class="caret">▶</span><span>' +
       escHtml((h.textContent || "").trim()) + "</span>";
-    btn.onclick = () => {
+    btn.onclick = async () => {
+      if(window.READER_NATIVE_PANELS && studyQuestions.length){
+        btn.disabled=true;
+        const owner=active;
+        try{
+          const questions=await Promise.all(studyQuestions.map(async item=>({...item,question:await studyAssets(item.question),answer:await studyAssets(item.answer)})));
+          if(owner===active)window.webkit.messageHandlers.mathReader.postMessage({type:'study',questions,document:active.source});
+        }catch(error){showNavigationError(String(error));}
+        finally{btn.disabled=false;}
+        return;
+      }
       body.classList.toggle("open");
       btn.classList.toggle("open", body.classList.contains("open"));
       saveScroll();
     };
+    if(window.READER_NATIVE_PANELS){
+      const inline=document.createElement('button');inline.type='button';inline.className='text-btn';inline.textContent='在原文展开';
+      inline.onclick=()=>{body.classList.toggle('open');saveScroll();};
+      h.after(inline);
+    }
     h.replaceWith(btn);
     btn.after(body);
   });
@@ -966,8 +986,13 @@ applySidebar();
 
 const selectionCapture=ReaderExplanation.bindCourse(()=>active,$('article'),()=>$('crumb').textContent);
 hostBridge = ReaderHostBridge.install({
+  prepareMaterial:async value=>value?{...value,question:await studyAssets(value.question||value.text)}:null,
   identity: () => ReaderExplanation.identity(active, $('article')),
-  material: () => selectionCapture.material(),
+  material: () => {
+    const value=selectionCapture.material();
+    if(!value)return null;
+    return {...value,courseID:window.READER_SOURCE_ID||'',kind:active.kind,path:active.path};
+  },
   search: query => ReaderSearch.searchSections(SEARCH_SECTIONS,query),
   read: () => ({
     title: active ? sidebarLabel((activePool().find(file => file.path === active.path)) || { label: active.path }) : (window.COURSE?.title||'知序'),
@@ -1013,9 +1038,12 @@ hostBridge = ReaderHostBridge.install({
       case 'deleteHistory': navigation.remove(payload?.kind,payload?.path); updateNavigation(); break;
       case 'undoHistory': navigation.undo(); updateNavigation(); break;
       case 'discardHistoryUndo': navigation.deleted=null; break;
-      case 'openDocument':
-        if (['note','exercise'].includes(payload?.kind) && (payload.kind === 'note' ? FILES.notes : FILES.exercises).some(file=>file.path===payload.path)) selectFile(payload.kind,payload.path,payload.anchor || '');
+      case 'openDocument': {
+        const kind=payload?.kind,path=documentPaths[kind]?.[payload?.path]||payload?.path;
+        if (['note','exercise'].includes(kind) && (kind === 'note' ? FILES.notes : FILES.exercises).some(file=>file.path===path)) selectFile(kind,path,payload.anchor || '');
+        else showNavigationError('原题文件已移除或不可用，已保存的讲解仍可阅读。');
         break;
+      }
       case 'pinDocument':
         if (['note','exercise'].includes(payload?.kind) && (payload.kind === 'note' ? FILES.notes : FILES.exercises).some(file=>file.path===payload.path)) {
           toggleDocumentPin(payload.kind,payload.path);

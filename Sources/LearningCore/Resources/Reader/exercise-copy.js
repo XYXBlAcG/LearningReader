@@ -17,10 +17,11 @@
     return Array.from(node.children || []).filter((child) => tag(child) === "LI");
   }
 
-  function questionRanges(nodes) {
+  function questionRanges(nodes, requireReference = true) {
     const children = Array.from(nodes || []);
-    const referenceIndex = children.findIndex(isReferenceHeading);
-    if (referenceIndex < 0) return [];
+    const found = children.findIndex(isReferenceHeading);
+    if (found < 0 && requireReference) return [];
+    const referenceIndex = found < 0 ? children.length : found;
     const ranges = [];
     for (let listIndex = 0; listIndex < referenceIndex; listIndex += 1) {
       const list = children[listIndex];

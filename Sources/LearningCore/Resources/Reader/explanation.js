@@ -8,7 +8,8 @@
     const id = identity(current, article);
     if (!id || !article) return null;
     const text = ReaderSelectionCopy.selectionMarkdown(article);
-    return text?.trim() ? {identity:id, text, title, document:current.source} : null;
+    const item=typeof ReaderStudyQuestions!=='undefined'?ReaderStudyQuestions.selected(article,current.questions||[]):null;
+    return text?.trim() ? {identity:id,text,title,document:current.source,question:item?.question||text,anchor:item?.anchor||''} : null;
   }
 
   function webpage(document) {

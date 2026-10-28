@@ -1,5 +1,6 @@
 import SwiftUI
 import LearningCore
+import AICore
 
 @main
 struct LearningReaderApp: App {
@@ -9,6 +10,7 @@ struct LearningReaderApp: App {
         WindowGroup {
             LearningView(model: model)
                 .environmentObject(ai)
+                .environmentObject(ai.study)
                 .frame(minWidth: 320, minHeight: 420)
                 .preferredColorScheme(.light)
         }
@@ -24,6 +26,8 @@ struct LearningView: View {
     @State private var courses = false
     @State private var settings = false
     @State private var history = false
+    @State private var localStudies=false
+    @State private var reference:ReferenceStudy?
     @State private var tools = false
     @State private var columns:NavigationSplitViewVisibility = .automatic
     @State private var compactColumn:NavigationSplitViewColumn = .detail
@@ -32,7 +36,7 @@ struct LearningView: View {
     var body: some View {
         NavigationSplitView(columnVisibility:$columns,preferredCompactColumn:$compactColumn) {
             if let snapshot=model.snapshot {
-                NativeCourseSidebar(snapshot:snapshot,reader:reader,onCourses:{courses=true},onOpen:open).id(snapshot.id)
+                NativeCourseSidebar(snapshot:snapshot,reader:reader,onCourses:{courses=true},onStudies:{localStudies=true},onOpen:open).id(snapshot.id)
             } else {
                 List { Button("课程仓库",systemImage:"books.vertical") { courses=true } }.navigationTitle("课程目录")
             }
@@ -96,6 +100,8 @@ struct LearningView: View {
             .inspector(isPresented:$tools) {
                 ReaderToolsView(snapshot:model.snapshot,reader:reader,presented:$tools,onOpen:open)
             }
+            .fullScreenCover(item:$reference){ReferenceStudyView(study:$0)}
+            .sheet(isPresented:$localStudies){StudyLibraryView(courseID:model.selected?.id)}
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
             .sheet(isPresented: $settings) { AppSettingsView(model: model) }
             .sheet(isPresented: $history) { ReadingHistoryView(reader: reader) }
@@ -103,13 +109,33 @@ struct LearningView: View {
                 Button("知道了") { model.issue = nil }
             } message: { Text(model.issue ?? "") }
             .task {
+                ai.study.onOpenSource={source in
+                    reference=nil;localStudies=false
+                    Task {
+                        guard let course=model.library.sources.first(where:{$0.id==source.courseID}),let kind=DocumentKind(rawValue:source.kind) else {model.issue="原课程已移除，保存的题目和讲解仍可离线阅读。";return}
+                        if model.selected?.id != course.id {await model.select(course)}
+                        var anchor=source.anchor
+                        if let current=model.snapshot?.course.documents.first(where:{$0.kind==kind && $0.path==source.path}),!source.fingerprint.isEmpty,StudySource.hash(current.source) != source.fingerprint {
+                            anchor="";model.issue="原文已更新，已打开当前文件；已保存的讲解保留原题快照。"
+                        }
+                        let target=ReaderDocumentTarget(kind:kind,path:source.path,anchor:anchor)
+                        reader.pendingOpen=(course.id,target)
+                        if reader.loadedSourceID==course.id && reader.state?.hasDocument==true {reader.open(target);reader.pendingOpen=nil}
+                        compactColumn = .detail
+                    }
+                }
+                reader.onReference={items,document in
+                    var questions=items
+                    for index in questions.indices {questions[index].source?.courseID=model.selected?.id ?? ""}
+                    reference=ReferenceStudy(questions:questions,document:document)
+                }
                 reader.onSelection = { interaction.begin($0, workspace: ai) }
                 reader.selectionActions=ai.settings.actions
                 await model.start()
             }
             .onReceive(ai.$settings) { reader.selectionActions=$0.actions }
             .onChange(of: model.library.selectedID) { _ in reader.state = nil }
-            .onChange(of: scenePhase) { value in if value == .active { model.sync(automatic: true) } }
+            .onChange(of: scenePhase) { value in if value == .active { model.sync(automatic: true) } else {ai.study.flush()} }
         }
         .tint(Color(red: 0.06, green: 0.59, blue: 0.46))
         .modifier(AIHost(interaction: interaction))

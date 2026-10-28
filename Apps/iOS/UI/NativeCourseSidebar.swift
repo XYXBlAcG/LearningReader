@@ -5,6 +5,7 @@ struct NativeCourseSidebar:View {
     let snapshot:CourseSnapshot
     @ObservedObject var reader:ReaderController
     let onCourses:()->Void
+    var onStudies:(()->Void)?=nil
     let onOpen:(ReaderDocumentTarget)->Void
     @State private var index:CourseNavigationIndex?
     @State private var query=""
@@ -13,6 +14,7 @@ struct NativeCourseSidebar:View {
     var body:some View {
         List {
             Button("课程仓库",systemImage:"books.vertical",action:onCourses)
+            if let onStudies { Button("本地讲解",systemImage:"tray.full",action:onStudies) }
             if !query.isEmpty {
                 if let issue { Text(issue).foregroundStyle(.secondary) }
                 else if reader.state?.searchStatus == "error" { Text("搜索索引加载失败，请刷新课程。").foregroundStyle(.secondary) }

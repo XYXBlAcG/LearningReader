@@ -8,8 +8,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     CODE_SIGNING_ALLOWED: NO
-    MARKETING_VERSION: "2.5"
-    CURRENT_PROJECT_VERSION: "8"
+    MARKETING_VERSION: "2.6"
+    CURRENT_PROJECT_VERSION: "9"
 packages:
   LearningCore:
     path: ../..
@@ -29,6 +29,7 @@ targets:
       - path: Localization
       - path: UI
       - path: Web
+      - path: Study
       - path: AI
       - path: ../Shared
       - path: Assets.xcassets
@@ -39,6 +40,8 @@ targets:
         product: WebContent
       - package: LearningCore
         product: AICore
+      - package: LearningCore
+        product: StudyLibrary
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chatgpt.nice114514.MathLearning

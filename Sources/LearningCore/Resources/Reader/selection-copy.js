@@ -1,7 +1,7 @@
 (function(root) {
   'use strict';
   const converter=new TurndownService({headingStyle:'atx',codeBlockStyle:'fenced',bulletListMarker:'-',emDelimiter:'*'});
-  const ignored='button, iframe, canvas, .interactive-embed, .code-toolbar, .preview-layout-controls, .preview-divider, .math-select-anchor, mjx-assistive-mml, [data-copy-ignore], [hidden]';
+  const ignored='button, iframe, canvas, .interactive-embed, .code-toolbar, .question-copy, .study-open, .preview-layout-controls, .preview-divider, .math-select-anchor, mjx-assistive-mml, [data-copy-ignore], [hidden]';
   converter.use(turndownPluginGfm.gfm);
   let mathSources=[];
   converter.addRule('originalMath',{
@@ -48,6 +48,16 @@
         const pre=ancestor.parentElement.cloneNode(false);pre.append(wrapper);content.append(pre);
       }else content.append(wrapper);
     }
+    return fragmentMarkdown(content);
+  }
+
+  function nodesMarkdown(nodes) {
+    const content=document.createDocumentFragment();
+    for(const node of nodes) content.append(node.cloneNode(true));
+    return fragmentMarkdown(content);
+  }
+
+  function fragmentMarkdown(content) {
     content.querySelectorAll('[data-math-source]').forEach(node=>node.replaceChildren(document.createTextNode(node.dataset.mathSource)));
     content.querySelectorAll(ignored).forEach(node=>node.remove());
     content.querySelectorAll('details:not([open])').forEach(node=>{
@@ -82,5 +92,5 @@
       pointer=null;
     });
   }
-  root.ReaderSelectionCopy={bind,selectionMarkdown,mathNode};
+  root.ReaderSelectionCopy={bind,selectionMarkdown,nodesMarkdown,mathNode};
 })(window);

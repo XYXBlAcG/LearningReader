@@ -50,15 +50,37 @@ final class AITransportTests: XCTestCase {
         XCTAssertFalse(session.running)
         XCTAssertNil(session.issue)
         XCTAssertEqual(session.answer, "数学公式")
+        XCTAssertEqual(session.record.versions.first?.status,.complete)
+        XCTAssertEqual(session.record.versions.count,1)
         session.followUp("再讲一讲")
         XCTAssertEqual(session.messages.map(\.role), [.user, .assistant, .user])
         XCTAssertEqual(session.messages[1].text, "数学公式")
         XCTAssertTrue(session.messages[0].text.contains("首条消息的全文"))
         XCTAssertFalse(session.messages[2].text.contains("首条消息的全文"))
         session.stop()
+        XCTAssertEqual(session.record.versions.count,2)
+        XCTAssertEqual(session.record.versions.first?.answer,"数学公式")
+        XCTAssertEqual(session.record.versions.last?.status,.stopped)
         try await Task.sleep(nanoseconds: 50_000_000)
         XCTAssertFalse(session.running)
         XCTAssertNil(session.issue)
+    }
+
+    @MainActor
+    func testResumeOldVersionBranchesWithoutDiscardingNewerAnswers() async throws {
+        let material=AIMaterial(title:"题目",text:"原题")
+        var record=StudyRecord(material:material,initial:try material.message(),system:"教学",action:.explain)
+        var first=StudyVersion(input:[],model:"old",service:"s");first.answer="旧答案";first.status = .complete
+        var second=StudyVersion(input:[],model:"new",service:"s");second.answer="新答案";second.status = .complete
+        record.versions=[first,second]
+        let session=AIConversation(title:"题目",profile:request("complete").profile,key:"fixture-key",system:record.system,initial:record.initial,client:client(),restored:record,selectedVersionID:first.id)
+        XCTAssertEqual(session.answer,"旧答案")
+        session.followUp("接着解释")
+        for _ in 0..<500 {if !session.running {break};try await Task.sleep(nanoseconds:10_000_000)}
+        XCTAssertEqual(session.record.versions.count,3)
+        XCTAssertEqual(session.record.versions[1].answer,"新答案")
+        XCTAssertEqual(session.messages[1].text,"旧答案")
+        XCTAssertEqual(session.answer,"数学公式")
     }
 
     private func client() -> AIClient {
