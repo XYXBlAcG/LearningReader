@@ -6,7 +6,7 @@ import unittest
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / '.build/release/course'
+CLI = Path(subprocess.check_output(['swift', 'build', '-c', 'release', '--show-bin-path'], cwd=ROOT, text=True).strip()) / 'course'
 
 
 class CourseChecks(unittest.TestCase):

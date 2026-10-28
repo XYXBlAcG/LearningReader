@@ -4,6 +4,12 @@ on:
     branches: [main, 'codex/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      runner:
+        description: 构建机（macOS 产物始终为 arm64）
+        type: choice
+        default: macos-15
+        options: [macos-15, macos-15-intel]
 permissions:
   contents: read
 concurrency:
@@ -11,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   clients:
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-15' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +40,9 @@ jobs:
       - name: Build macOS app
         run: python3 Tools/build.py macos
       - name: Real course checks
-        run: python3 Tools/check_courses.py
+        run: |
+          swift build -c release --product course
+          python3 Tools/check_courses.py
       - name: Generate iOS project
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
