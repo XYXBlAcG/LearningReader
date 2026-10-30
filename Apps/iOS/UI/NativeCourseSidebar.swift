@@ -37,20 +37,7 @@ struct NativeCourseSidebar:View {
                 ForEach(snapshot.course.manifest.sections.indices,id:\.self) { position in
                     let section=snapshot.course.manifest.sections[position]
                     Section(section.title) {
-                        ForEach(expansion.rows(index.tree(kind:section.kind,sectionRoot:section.path))) { row in
-                            Group {
-                                if let item=row.node.item { CourseDocumentRow(item:item,reader:reader,onOpen:onOpen) }
-                                else {
-                                    Button { expansion.toggle(row.id) } label: {
-                                        HStack(spacing:8) {
-                                            Image(systemName:expansion.expandedIDs.contains(row.id) ? "chevron.down":"chevron.right")
-                                                .font(.caption).frame(width:14)
-                                            Label(row.node.label,systemImage:"folder").lineLimit(2)
-                                        }.foregroundStyle(.primary)
-                                    }.accessibilityValue(expansion.expandedIDs.contains(row.id) ? "已展开":"已收起")
-                                }
-                            }.padding(.leading,CGFloat(row.depth)*16)
-                        }
+                        CourseDirectoryRows(nodes:index.tree(kind:section.kind,sectionRoot:section.path),expansion:$expansion,reader:reader,onOpen:onOpen)
                     }
                 }
             } else if let issue { Text(issue).foregroundStyle(.secondary) }
@@ -83,6 +70,38 @@ struct NativeCourseSidebar:View {
                 let found=try await reader.searchNative(requested)
                 if !Task.isCancelled && query==requested { results=found;issue=nil }
             } catch { if !Task.isCancelled { issue=error.localizedDescription } }
+        }
+    }
+}
+
+struct CourseDirectoryRows:View {
+    let nodes:[CourseNavigationNode]
+    @Binding var expansion:CourseTreeExpansion
+    @ObservedObject var reader:ReaderController
+    let onOpen:(ReaderDocumentTarget)->Void
+    var body:some View {
+        ForEach(expansion.rows(nodes)) { row in
+            CourseDirectoryEntry(node:row.node,expanded:expansion.expandedIDs.contains(row.id),reader:reader,onToggle:{expansion.toggle(row.id)},onOpen:onOpen)
+                .padding(.leading,CGFloat(row.depth)*16)
+        }
+    }
+}
+
+struct CourseDirectoryEntry:View {
+    let node:CourseNavigationNode
+    let expanded:Bool
+    @ObservedObject var reader:ReaderController
+    let onToggle:()->Void
+    let onOpen:(ReaderDocumentTarget)->Void
+    var body:some View {
+        if let item=node.item {CourseDocumentRow(item:item,reader:reader,onOpen:onOpen)}
+        else {
+            Button(action:onToggle) {
+                HStack(spacing:8) {
+                    Image(systemName:expanded ? "chevron.down":"chevron.right").font(.caption).frame(width:14)
+                    Label(node.label,systemImage:"folder").lineLimit(2)
+                }.foregroundStyle(.primary)
+            }.accessibilityValue(expanded ? "已展开":"已收起")
         }
     }
 }

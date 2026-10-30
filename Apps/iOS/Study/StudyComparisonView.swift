@@ -85,7 +85,7 @@ struct ReferenceStudyView:View {
                         Button("上一题"){selected-=1}.disabled(selected==0)
                         Spacer()
                         Button("讲一讲"){
-                            var source=item.source
+                            let source=item.source
                             interaction.explain(.init(title:item.label,text:item.request,document:study.document,question:item.question,source:source),workspace:ai)
                         }
                         if library.records.contains(where:{$0.questionDigest==StudySource.hash(item.question) && $0.source?.courseID==item.source?.courseID && $0.source?.path==item.source?.path && $0.source?.anchor==item.source?.anchor}) { Button("已有讲解"){saved=true} }
