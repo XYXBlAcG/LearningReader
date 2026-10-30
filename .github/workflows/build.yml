@@ -57,10 +57,8 @@ jobs:
       - name: PDF renderer checks
         run: |
           device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for runtime,items in devices.items() if ".iOS-" in runtime for d in items if d["name"].startswith("iPhone")))')
-          xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Debug -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/PDFTests CODE_SIGNING_ALLOWED=NO test -parallel-testing-enabled NO -only-testing:ReaderPDFTests > build/pdf-tests.log 2>&1 || { tail -160 build/pdf-tests.log; exit 1; }
-          container=$(xcrun simctl get_app_container "$device" chatgpt.nice114514.MathLearning data)
-          mkdir -p build/PrintValidation
-          cp "$container"/Documents/PrintValidation/*.pdf build/PrintValidation/
+          xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Debug -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/PDFTests -resultBundlePath build/PDFValidation.xcresult CODE_SIGNING_ALLOWED=NO test -parallel-testing-enabled NO -only-testing:ReaderPDFTests > build/pdf-tests.log 2>&1 || { tail -160 build/pdf-tests.log; exit 1; }
+          xcrun xcresulttool export attachments --path build/PDFValidation.xcresult --output-path build/PrintValidation
       - uses: actions/upload-artifact@v4
         with:
           name: PrintValidation

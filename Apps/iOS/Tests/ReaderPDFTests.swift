@@ -14,8 +14,6 @@ final class ReaderPDFTests:XCTestCase {
         defer {window.isHidden=true}
         let bundle=Bundle(for:Self.self)
         let folder=try XCTUnwrap(bundle.url(forResource:"paper-fixtures",withExtension:nil))
-        let output=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("PrintValidation")
-        try FileManager.default.createDirectory(at:output,withIntermediateDirectories:true)
         var counts:[String:Int]=[:]
         for name in ["questions","answers","long"] {
             let payload=try JSONDecoder().decode(ExercisePaper.self,from:Data(contentsOf:folder.appendingPathComponent(name+".json")))
@@ -38,7 +36,9 @@ final class ReaderPDFTests:XCTestCase {
                 XCTAssertEqual(math?["errors"] as? Int,0)
                 XCTAssertEqual(math?["images"] as? Bool,true)
             }
-            try data.write(to:output.appendingPathComponent(name+".pdf"))
+            let attachment=XCTAttachment(data:data,uniformTypeIdentifier:"com.adobe.pdf")
+            attachment.name=name+".pdf";attachment.lifetime = .keepAlways
+            add(attachment)
             counts[name]=document.pageCount
         }
         XCTAssertGreaterThan(counts["answers"] ?? 0,counts["questions"] ?? 0)
