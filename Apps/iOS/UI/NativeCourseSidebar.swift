@@ -12,64 +12,69 @@ struct NativeCourseSidebar:View {
     @State private var query=""
     @State private var results:[ReaderSearchResult]=[]
     @State private var issue:String?
+    private var currentTarget:ReaderDocumentTarget? {
+        guard let state=reader.state,let raw=state.documentKind,let kind=DocumentKind(rawValue:raw) else {return nil}
+        return ReaderDocumentTarget(kind:kind,path:state.path)
+    }
+    private var searchIdentity:String {query+":"+(reader.state?.searchStatus ?? "")}
     var body:some View {
         List {
             Button("课程仓库",systemImage:"books.vertical",action:onCourses)
             if let onStudies { Button("本地讲解",systemImage:"tray.full",action:onStudies) }
-            if !query.isEmpty {
-                if let issue { Text(issue).foregroundStyle(.secondary) }
-                else if reader.state?.searchStatus == "error" { Text("搜索索引加载失败，请刷新课程。").foregroundStyle(.secondary) }
-                else if reader.state?.searchStatus != "ready" { ProgressView("加载搜索索引") }
-                else if results.isEmpty { Text("没有匹配的内容").foregroundStyle(.secondary) }
-                ForEach(results) { result in
-                    Button { onOpen(result.target) } label: {
-                        VStack(alignment:.leading,spacing:4) {
-                            Text(result.title).lineLimit(2)
-                            if let snippet=result.snippet { Text(snippet).font(.caption).foregroundStyle(.secondary).lineLimit(3) }
-                        }
-                    }
-                }
-            } else if let index {
-                let pinned=index.items.filter{(reader.state?.pinnedKeys ?? []).contains($0.id)}
-                if !pinned.isEmpty {
-                    Section("置顶") { ForEach(pinned) { item in CourseDocumentRow(item:item,reader:reader,onOpen:onOpen) } }
-                }
-                ForEach(snapshot.course.manifest.sections.indices,id:\.self) { position in
-                    let section=snapshot.course.manifest.sections[position]
-                    Section(section.title) {
-                        CourseDirectoryRows(nodes:index.tree(kind:section.kind,sectionRoot:section.path),expansion:$expansion,reader:reader,onOpen:onOpen)
-                    }
-                }
-            } else if let issue { Text(issue).foregroundStyle(.secondary) }
+            if query.isEmpty {directoryContent} else {searchContent}
         }
         .listStyle(.sidebar)
         .navigationTitle("课程目录")
         .searchable(text:$query,prompt:"搜索课程正文")
         .task(id:snapshot.id) {
             do {
-                guard let data=snapshot.course.indices["index.json"] else { throw ReaderError.invalidIndex }
-                let loaded=try CourseNavigationIndex(data:data)
-                index=loaded
-                if let kind=reader.state?.documentKind.flatMap(DocumentKind.init(rawValue:)),let path=reader.state?.path {
-                    for section in snapshot.course.manifest.sections {
-                        expansion.reveal(.init(kind:kind,path:path),in:loaded.tree(kind:section.kind,sectionRoot:section.path))
-                    }
-                }
-            } catch { issue=error.localizedDescription }
+                guard let data=snapshot.course.indices["index.json"] else {throw ReaderError.invalidIndex}
+                index=try CourseNavigationIndex(data:data)
+                revealCurrent()
+            }catch {issue=error.localizedDescription}
         }
-        .onChange(of:(reader.state?.documentKind ?? "")+":"+(reader.state?.path ?? "")) {
-            guard let index,let kind=reader.state?.documentKind.flatMap(DocumentKind.init(rawValue:)),let path=reader.state?.path else {return}
-            for section in snapshot.course.manifest.sections {
-                expansion.reveal(.init(kind:kind,path:path),in:index.tree(kind:section.kind,sectionRoot:section.path))
-            }
-        }
-        .task(id:query+":"+(reader.state?.searchStatus ?? "")) {
-            guard !query.isEmpty, reader.state?.searchStatus == "ready" else { results=[];return }
+        .onChange(of:currentTarget) {_,_ in revealCurrent()}
+        .task(id:searchIdentity) {
+            guard !query.isEmpty,reader.state?.searchStatus == "ready" else {results=[];return}
             let requested=query
             do {
                 let found=try await reader.searchNative(requested)
-                if !Task.isCancelled && query==requested { results=found;issue=nil }
-            } catch { if !Task.isCancelled { issue=error.localizedDescription } }
+                if !Task.isCancelled && query==requested {results=found;issue=nil}
+            }catch {if !Task.isCancelled {issue=error.localizedDescription}}
+        }
+    }
+    @ViewBuilder private var directoryContent:some View {
+        if let index {
+            let pinned=index.items.filter{(reader.state?.pinnedKeys ?? []).contains($0.id)}
+            if !pinned.isEmpty {
+                Section("置顶") {ForEach(pinned) {item in CourseDocumentRow(item:item,reader:reader,onOpen:onOpen)}}
+            }
+            ForEach(snapshot.course.manifest.sections.indices,id:\.self) {position in
+                let section=snapshot.course.manifest.sections[position]
+                Section(section.title) {
+                    CourseDirectoryRows(nodes:index.tree(kind:section.kind,sectionRoot:section.path),expansion:$expansion,reader:reader,onOpen:onOpen)
+                }
+            }
+        }else if let issue {Text(issue).foregroundStyle(.secondary)}
+    }
+    @ViewBuilder private var searchContent:some View {
+        if let issue {Text(issue).foregroundStyle(.secondary)}
+        else if reader.state?.searchStatus == "error" {Text("搜索索引加载失败，请刷新课程。").foregroundStyle(.secondary)}
+        else if reader.state?.searchStatus != "ready" {ProgressView("加载搜索索引")}
+        else if results.isEmpty {Text("没有匹配的内容").foregroundStyle(.secondary)}
+        ForEach(results) {result in
+            Button {onOpen(result.target)} label: {
+                VStack(alignment:.leading,spacing:4) {
+                    Text(result.title).lineLimit(2)
+                    if let snippet=result.snippet {Text(snippet).font(.caption).foregroundStyle(.secondary).lineLimit(3)}
+                }
+            }
+        }
+    }
+    private func revealCurrent() {
+        guard let index,let target=currentTarget else {return}
+        for section in snapshot.course.manifest.sections {
+            expansion.reveal(target,in:index.tree(kind:section.kind,sectionRoot:section.path))
         }
     }
 }
