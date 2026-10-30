@@ -11,8 +11,9 @@ li { margin:8pt 0; }
 li:has(>.paper-question) { break-inside:avoid; page-break-inside:avoid; }
 li::marker { font-weight:600; }
 .paper-question { break-inside:avoid; page-break-inside:avoid; }
-.paper-question[data-space="medium"] { margin-bottom:36mm; }
-.paper-question[data-space="large"] { margin-bottom:65mm; }
+.paper-tail { break-inside:avoid; page-break-inside:avoid; }
+.paper-question[data-space="medium"] .paper-space { height:36mm; }
+.paper-question[data-space="large"] .paper-space { height:65mm; }
 .paper-answers { break-before:page; page-break-before:always; }
 img,svg { max-width:100%; }
 img { display:block; height:auto; max-height:220mm; object-fit:contain; margin:8pt auto; break-inside:avoid; }

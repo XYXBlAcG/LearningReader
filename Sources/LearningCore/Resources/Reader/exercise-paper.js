@@ -25,6 +25,11 @@
    group.append(...nodes.slice(range.listIndex+1,range.endIndex));
    if(options.space==='medium'||options.space==='large'){
     group.dataset.space=options.space;
+    const tail=document.createElement('div');tail.className='paper-tail';
+    const last=[...group.childNodes].filter(node=>node.nodeType!==3||node.textContent.trim()).at(-1);
+    if(last)tail.append(last);
+    const space=document.createElement('div');space.className='paper-space';space.setAttribute('aria-hidden','true');
+    tail.append(space);group.append(tail);
    }
   }
   if(!ranges.length)warnings.push('未识别到标准题号，已保留正文，请核对整套题是否完整。');
