@@ -59,3 +59,11 @@ test('answer appendix retains subject headings for repeated question numbers',as
  assert.deepEqual(Array.from(appendix.querySelectorAll('h2'),n=>n.textContent),['微积分','线性代数']);
  }finally{dom.window.close();}
 });
+
+test('writing area keeps a complete inline sentence with its formulas',async()=>{
+ const dom=paper();try{
+ const result=await dom.window.ReaderPaper.prepare('1. 对上一课数据取 $w=1,b=1$，计算平方损失。\n\n## 参考答案\n\n1. 解答',{answers:false,space:'medium'},()=>null);
+ const wrapper=dom.window.document.createElement('div');wrapper.innerHTML=result.html;
+ const tail=wrapper.querySelector('.paper-tail');assert.match(tail.textContent,/对上一课数据取/);assert.match(tail.textContent,/计算平方损失/);assert.ok(tail.querySelector('[data-math-source]'));
+ }finally{dom.window.close();}
+});

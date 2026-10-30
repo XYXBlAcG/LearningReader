@@ -17,6 +17,7 @@
    (answerLevel!==null?answers:body).append(node);
   }
   if(!referenceCount)warnings.push('未找到明确的参考答案分区，请在预览中核对是否包含答案。');
+  const blockSelector='p,div,section,blockquote,pre,table,ol,ul,h1,h2,h3,h4,h5,h6,img,figure,hr,[data-math-block="true"]';
   const nodes=[...body.children],ranges=ReaderExerciseCopy.questionRanges(nodes,false);
   for(const range of [...ranges].reverse()){
    const parent=nodes[range.listIndex],item=range.itemIndex===null?parent:[...parent.children].filter(n=>n.tagName==='LI')[range.itemIndex];
@@ -27,7 +28,13 @@
     group.dataset.space=options.space;
     const tail=document.createElement('div');tail.className='paper-tail';
     const last=[...group.childNodes].filter(node=>node.nodeType!==3||node.textContent.trim()).at(-1);
-    if(last)tail.append(last);
+    if(last){
+     const ending=[last];let previous=last.previousSibling;
+     if(!(last.nodeType===1&&last.matches(blockSelector))){
+      while(previous&&!(previous.nodeType===1&&previous.matches(blockSelector))){ending.unshift(previous);previous=previous.previousSibling;}
+     }
+     tail.append(...ending);
+    }
     const space=document.createElement('div');space.className='paper-space';space.setAttribute('aria-hidden','true');
     tail.append(space);group.append(tail);
    }
