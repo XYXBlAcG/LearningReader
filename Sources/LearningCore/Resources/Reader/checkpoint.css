@@ -1,0 +1,20 @@
+.checkpoint { margin-block:2rem; padding:1rem 0; border-block:1px solid var(--line); min-width:0; }
+.checkpoint-label { color:var(--muted,#666); font-size:.85em; }
+.checkpoint fieldset { border:0; padding:0; margin:0; min-width:0; display:grid; gap:.4rem; }
+.checkpoint-option { display:flex; gap:.7rem; align-items:flex-start; min-height:44px; padding:.65rem .8rem; border-radius:9px; cursor:pointer; background:var(--bg-side); }
+.checkpoint-option:has(input:checked) { background:var(--accent-soft,rgba(68,133,101,.14)); }
+.checkpoint-option:focus-within { outline:2px solid var(--accent,#448565); outline-offset:2px; }
+.checkpoint-option input { margin-top:.4rem; accent-color:var(--accent,#448565); flex:none; }
+.checkpoint-option div { min-width:0; flex:1; }
+.checkpoint-option p { margin:.15rem 0; }
+.checkpoint-actions { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.7rem; }
+.checkpoint button { min-height:44px; }
+.checkpoint button:disabled { opacity:.5; cursor:default; }
+.checkpoint-status { font-size:.85em; color:var(--muted,#666); }
+.checkpoint-error { color:var(--danger,#a33); font-size:.9em; }
+.checkpoint-feedback { margin-top:1rem; }
+.checkpoint mjx-container[display="true"] { overflow-x:auto; max-width:100%; }
+.checkpoint-summary { margin-block:1rem; font-size:.9em; }
+.checkpoint-summary summary { cursor:pointer; padding-block:.5rem; }
+.checkpoint-summary a { display:block; padding-block:.3rem; }
+.checkpoint [hidden] { display:none !important; }

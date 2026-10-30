@@ -2,6 +2,8 @@
 
 阅读器直接加载本地资源，不依赖 CDN。源文件保留第三方许可证与原有声明，不手工改动。
 
+随堂自测的 Schema 校验由 Ajv 预编译为离线代码，与 marked 一起由 [自测打包工具](../../../../../Tools/build_checkpoints.mjs) 派生为 checkpoint-core.js；版本以 [开发依赖](../../../../../package.json) 为准，许可证见 [Ajv MIT](ajv-LICENSE)。CI 使用 `node Tools/build_checkpoints.mjs --check` 核对，不在设备端编译 Schema。
+
 | 资源 | 固定版本 | 包内来源 | 许可证 |
 |---|---|---|---|
 | Markdown 复制转换 | Turndown 7.2.2 | `turndown` npm 包的 `dist/turndown.js` | [MIT](turndown-LICENSE) |

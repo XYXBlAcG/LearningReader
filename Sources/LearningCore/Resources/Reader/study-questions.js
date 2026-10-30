@@ -18,7 +18,7 @@
     const parent=children[range.listIndex];
     const item=range.itemIndex===null?parent:[...parent.children].filter(n=>n.tagName==='LI')[range.itemIndex];
     const number=range.itemIndex===null?Number(item.textContent.match(/\d+/)?.[0]):Number(parent.getAttribute('start')||1)+range.itemIndex;
-    const blocks=[item,...children.slice(range.listIndex+1,range.endIndex)];
+    const blocks=[item,...children.slice(range.listIndex+1,range.endIndex)].filter(node=>!node.classList?.contains('checkpoint'));
     return {section:sections[range.listIndex],number,nodes:blocks,markdown:ReaderSelectionCopy.nodesMarkdown(blocks)};
    });
   }

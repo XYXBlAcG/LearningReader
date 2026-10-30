@@ -41,3 +41,28 @@ if args.check:
         raise SystemExit('课程模型与 Schema 不一致，请运行 python3 Tools/generate_contract.py')
 else:
     output.write_text(source)
+
+checkpoint = json.loads((ROOT / 'Schemas/checkpoint.schema.json').read_text())
+models = 'import Foundation\n\npublic enum CheckpointKind: String, Codable, Sendable { case ' + ', '.join(checkpoint['properties']['type']['enum']) + ' }\n\n'
+for name, definition in [('CheckpointOption', checkpoint['$defs']['option']), ('CheckpointDefinition', checkpoint)]:
+    lines = [f'public struct {name}: Codable, Sendable {{']
+    parameters = []
+    for key, value in definition['properties'].items():
+        kind = {'string': 'String', 'integer': 'Int', 'array': '[String]'}[value['type']]
+        if key == 'options':
+            kind = '[CheckpointOption]'
+        if key == 'type':
+            kind = 'CheckpointKind'
+        lines.append(f'    public let {key}: {kind}')
+        parameters.append(f'{key}: {kind}')
+    lines.append('    public init(' + ', '.join(parameters) + ') {')
+    lines.extend(f'        self.{key} = {key}' for key in definition['properties'])
+    lines += ['    }', '}']
+    models += '\n'.join(lines) + '\n\n'
+models = models.rstrip() + '\n'
+checkpoint_output = ROOT / 'Sources/LearningCore/CheckpointDefinition.swift'
+if args.check:
+    if not checkpoint_output.exists() or checkpoint_output.read_text() != models:
+        raise SystemExit('自测模型与 Schema 不一致，请运行 python3 Tools/generate_contract.py')
+else:
+    checkpoint_output.write_text(models)

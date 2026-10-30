@@ -77,6 +77,7 @@ function updateNavigation() {
 }
 
 let mathTypesetQueue = Promise.resolve();
+let checkpointView=null;
 
 function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -101,7 +102,17 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
   const html = ReaderMarkdown.render(linkedSource, source => isExercise ? ReaderExerciseCopy.formatSubquestions(source) : source);
   const proseClass = isExercise ? "prose exercise-prose" : "prose";
   ReaderProblemPreviews.dispose();
+  checkpointView?.dispose();
   $("article").innerHTML = '<div class="' + proseClass + '">' + html + "</div>";
+  const owner=active,article=$("article").firstElementChild;
+  try{
+    const view=await ReaderCheckpointUI.mount(article,{courseID:window.READER_SOURCE_ID||location.origin,typeset});
+    if(owner!==active||!article.isConnected){view.dispose();return;}
+    checkpointView=view;
+  }catch(error){
+    const message=document.createElement('p');message.className='checkpoint-error';message.textContent='自测记录无法读取：'+error.message;article.prepend(message);
+  }
+  if(owner!==active||!article.isConnected)return;
   studyQuestions=isExercise?ReaderStudyQuestions.build($("article").firstElementChild):[];
   if(active)active.questions=studyQuestions;
 

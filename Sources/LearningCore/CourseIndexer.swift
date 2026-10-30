@@ -81,15 +81,16 @@ public enum CourseIndexer {
         }
         let script = try String(contentsOf: ReaderAssets.reader.appendingPathComponent("content-index.js"), encoding: .utf8)
         guard let context = JSContext() else { throw ReaderError.invalidIndex }
+        context.evaluateScript(try String(contentsOf:ReaderAssets.reader.appendingPathComponent("checkpoint-core.js"),encoding:.utf8))
         context.evaluateScript(script)
         let input = try JSONEncoder().encode(documents)
         guard context.exception == nil, let output = context.objectForKeyedSubscript("ReaderContentIndex")?.forProperty("buildJSON")?.call(withArguments: [String(decoding: input, as: UTF8.self)])?.toString(), context.exception == nil,
-              let data = output.data(using: .utf8), let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ReaderError.invalidIndex }
+              let data = output.data(using: .utf8), let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ReaderError.course(context.exception?.toString() ?? "课程索引无效") }
         if configuration.markdown, let files = (object["files"] as? [String: Any])?["notes"] as? [[String: String]], let title = files.first(where: { $0["path"] == manifest.entry })?["label"], !title.isEmpty {
             manifest = CourseManifest(schemaVersion: 1, title: title, entry: manifest.entry, sections: manifest.sections, assets: manifest.assets, exclude: manifest.exclude)
         }
         var indices: [String: Data] = [:]
-        for (key, name) in [("files", "index.json"), ("graph", "graph.json"), ("search", "search-index.json")] {
+        for (key, name) in [("files", "index.json"), ("graph", "graph.json"), ("search", "search-index.json"), ("checkpoints","checkpoints.json")] {
             guard let value = object[key] else { throw ReaderError.invalidIndex }
             indices[name] = try JSONSerialization.data(withJSONObject: value)
         }

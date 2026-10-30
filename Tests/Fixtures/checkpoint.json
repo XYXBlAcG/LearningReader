@@ -1,0 +1,10 @@
+{
+  "id": "rank.pivot.one", "revision": 1, "type": "single",
+  "stem": "矩阵 $\\begin{pmatrix}1&2\\0&0\\end{pmatrix}$ 的秩是？",
+  "options": [
+    {"id": "one", "text": "$1$", "feedback": "只有一个主元，因此秩为 $1$。"},
+    {"id": "two", "text": "$2$", "feedback": "零行不提供独立约束，不能按矩阵行数计秩。"}
+  ],
+  "correct": ["one"], "explanation": "数阶梯形的主元，而不是数原矩阵的行。",
+  "concept": "矩阵的秩", "group": "rank.pivots", "review": "#定义"
+}

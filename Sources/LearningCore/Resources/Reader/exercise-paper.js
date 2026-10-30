@@ -3,6 +3,13 @@
  async function prepare(source,options={},resolve){
   const document=root.document,content=document.createElement('div'),body=document.createElement('section'),answers=document.createElement('section');
   content.innerHTML=ReaderMarkdown.render(source);
+  const checkpoints=[...content.querySelectorAll('[data-checkpoint]')];
+  for(const [index,box] of checkpoints.entries()){
+   const q=JSON.parse(box.dataset.checkpoint);box.removeAttribute('data-checkpoint');box.className='paper-question';
+   const heading=document.createElement('h3');heading.textContent='随堂自测 '+(index+1);box.prepend(heading);
+   const answer=document.createElement('section'),title=document.createElement('h3');title.textContent='随堂自测 '+(index+1)+' 参考答案';answer.append(title);
+   const text=document.createElement('div');text.innerHTML=ReaderMarkdown.render(q.options.map((o,i)=>(q.correct.includes(o.id)?'**正确选项 ':'**非正确选项 ')+String.fromCharCode(65+i)+'：** '+o.feedback).join('\n\n')+'\n\n'+q.explanation,value=>value,false);answer.append(text);answers.append(answer);
+  }
   const warnings=[],ancestors=[];let answerLevel=null,referenceCount=0;
   for(const node of [...content.children]){
    const level=/^H[1-6]$/.test(node.tagName)?Number(node.tagName[1]):null;
@@ -16,7 +23,7 @@
    }
    (answerLevel!==null?answers:body).append(node);
   }
-  if(!referenceCount)warnings.push('未找到明确的参考答案分区，请在预览中核对是否包含答案。');
+  if(!referenceCount&&!checkpoints.length)warnings.push('未找到明确的参考答案分区，请在预览中核对是否包含答案。');
   const blockSelector='p,div,section,blockquote,pre,table,ol,ul,h1,h2,h3,h4,h5,h6,img,figure,hr,[data-math-block="true"]';
   const nodes=[...body.children],ranges=ReaderExerciseCopy.questionRanges(nodes,false);
   for(const range of [...ranges].reverse()){
@@ -39,9 +46,9 @@
     tail.append(space);group.append(tail);
    }
   }
-  if(!ranges.length)warnings.push('未识别到标准题号，已保留正文，请核对整套题是否完整。');
+  if(!ranges.length&&!checkpoints.length)warnings.push('未识别到标准题号，已保留正文，请核对整套题是否完整。');
   const output=document.createElement('article');output.className='paper';output.append(body);
-  if(options.answers&&referenceCount){answers.className='paper-answers';output.append(answers);}
+  if(options.answers&&(referenceCount||checkpoints.length)){answers.className='paper-answers';output.append(answers);}
   const images=new Map();
   for(const image of [...output.querySelectorAll('img')]){
    const src=image.getAttribute('src')||'';
@@ -55,7 +62,7 @@
    }catch(error){throw new Error('题图导出失败：'+error.message);}
   }
   output.querySelectorAll('video,audio,iframe').forEach(node=>{const label=document.createElement('p');label.textContent='多媒体内容请在应用中查看。';node.replaceWith(label);warnings.push('多媒体内容无法打印。');});
-  return {title:options.title||'练习试卷',html:output.outerHTML,questionCount:ranges.length,warnings:[...new Set(warnings)]};
+  return {title:options.title||'练习试卷',html:output.outerHTML,questionCount:ranges.length+checkpoints.length,warnings:[...new Set(warnings)]};
  }
  async function render(payload){
   const article=document.getElementById('article');article.innerHTML=payload.html;

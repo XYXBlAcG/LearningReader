@@ -1,5 +1,5 @@
 (function(root,factory){
-  const api=factory();
+  const api=factory(typeof module==='object'&&module.exports?require('./checkpoint-core.js'):root.ReaderCheckpoints);
   if(typeof module==='object'&&module.exports){
     module.exports=api;
     if(require.main===module){
@@ -9,7 +9,7 @@
       process.stdin.on('end',()=>process.stdout.write(api.buildJSON(source)));
     }
   }else root.ReaderContentIndex=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(){
+})(typeof globalThis!=='undefined'?globalThis:this,function(checkpoints){
   'use strict';
   const compare=(a,b)=>a<b?-1:a>b?1:0;
   const id=(kind,path,anchor='')=>kind+':'+path+(anchor?'#'+anchor:'');
@@ -81,7 +81,8 @@
   }
 
   function build(input){
-    const documents=input.map(value=>({...value,label:title(value.path,value.source),headings:{}})).sort((a,b)=>compare(a.kind==='note'?0:1,b.kind==='note'?0:1)||compare(a.path,b.path));
+    const quiz=checkpoints.catalog(input);
+    const documents=input.map(value=>({...value,source:checkpoints.project(value.source),label:title(value.path,value.source),headings:{}})).sort((a,b)=>compare(a.kind==='note'?0:1,b.kind==='note'?0:1)||compare(a.path,b.path));
     const byId=new Map(),byPath=new Map(),nodes=[],nodeIds=new Set(),edges=[],edgeIds=new Set(),unresolved=[],backlinks={};
     for(const doc of documents){
       for(const match of doc.source.matchAll(/^#{1,6}\s+(.+?)\s*$/gm))doc.headings[headingId(match[1])]=match[1].trim();
@@ -127,7 +128,7 @@
     for(const [kind,name] of [['note','notes'],['exercise','exercises']]){
       files[name]=documents.filter(doc=>doc.kind===kind).map(doc=>({path:doc.path,label:doc.label})).sort(fileOrder);
     }
-    return {files,graph:{nodes,edges,backlinks:orderedBacklinks,unresolved},search:{version:1,sections:documents.flatMap(sections)}};
+    return {files,graph:{nodes,edges,backlinks:orderedBacklinks,unresolved},search:{version:1,sections:documents.flatMap(sections)},checkpoints:quiz};
   }
 
   return {build,buildJSON:source=>JSON.stringify(build(JSON.parse(source)))};

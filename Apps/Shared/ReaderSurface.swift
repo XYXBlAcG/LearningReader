@@ -69,6 +69,7 @@ struct ReaderSurface: PlatformReaderView {
         configuration.setURLSchemeHandler(context.coordinator, forURLScheme: "mathreader")
         configuration.userContentController.add(context.coordinator, name: "mathReader")
         configuration.userContentController.addScriptMessageHandler(context.coordinator, contentWorld: .page, name: "readerResource")
+        configuration.userContentController.addScriptMessageHandler(context.coordinator, contentWorld: .page, name: "readerCheckpoint")
         if let source = try? ReaderAssets.nativeFetch {
             configuration.userContentController.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
@@ -106,6 +107,7 @@ struct ReaderSurface: PlatformReaderView {
         view.navigationDelegate = nil
         view.configuration.userContentController.removeScriptMessageHandler(forName: "mathReader")
         view.configuration.userContentController.removeScriptMessageHandler(forName: "readerResource", contentWorld: .page)
+        view.configuration.userContentController.removeScriptMessageHandler(forName: "readerCheckpoint", contentWorld: .page)
     }
 
     final class Coordinator: NSObject, WKURLSchemeHandler, WKNavigationDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
@@ -113,6 +115,7 @@ struct ReaderSurface: PlatformReaderView {
         let sourceID:String
         let controller: ReaderController
         let onError: (String) -> Void
+        var checkpointService:CheckpointService?
 
         init(snapshot: CourseSnapshot, sourceID:String, controller: ReaderController, onError: @escaping (String) -> Void) {
             self.sourceID=sourceID
@@ -137,6 +140,7 @@ struct ReaderSurface: PlatformReaderView {
         func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) { }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping (Any?, String?) -> Void) {
+            if message.name=="readerCheckpoint" {checkpoint(message,reply:replyHandler);return}
             do {
                 guard message.webView === controller.webView, message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "mathreader", message.frameInfo.request.url?.host == "local", message.frameInfo.request.url?.path == "/reader/index.html",
                       let body = message.body as? [String: String], let raw = body["url"], let url = URL(string: raw),

@@ -4,10 +4,14 @@
   "scripts": {
     "test:ai": "node --test Tests/ReaderTests/ai-markdown.test.cjs Tests/ReaderTests/reader-explanation.test.cjs",
     "build:reader-vendor": "node Tools/build_reader_vendor.mjs",
-    "check:reader-vendor": "node Tools/build_reader_vendor.mjs --check"
+    "check:reader-vendor": "node Tools/build_reader_vendor.mjs --check",
+    "build:checkpoints": "node Tools/build_checkpoints.mjs",
+    "check:checkpoints": "node Tools/build_checkpoints.mjs --check"
   },
   "devDependencies": {
+    "ajv": "8.17.1",
     "esbuild": "0.25.12",
+    "fake-indexeddb": "6.2.4",
     "jsdom": "26.1.0",
     "marked": "18.0.9",
     "marked-cjk-friendly": "0.1.3"

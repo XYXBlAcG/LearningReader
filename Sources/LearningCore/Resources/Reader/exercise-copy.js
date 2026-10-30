@@ -59,6 +59,7 @@
 
   function sourceText(node) {
     if (!node) return "";
+    if(node.classList?.contains('checkpoint'))return '';
     const formula=node.getAttribute?.('data-math-source');
     if(formula!==null&&formula!==undefined)return formula;
     if(node.classList?.contains('math-select-anchor'))return '';
