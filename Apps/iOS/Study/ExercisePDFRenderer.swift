@@ -17,7 +17,7 @@ final class ExercisePDFRenderer:NSObject,WKNavigationDelegate {
     override init() {
         let configuration=WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
-        web=WKWebView(frame:CGRect(x:0,y:0,width:510.24,height:720.85),configuration:configuration)
+        web=WKWebView(frame:CGRect(origin:.zero,size:ExercisePageRenderer.contentSize),configuration:configuration)
         super.init()
         web.navigationDelegate=self
         web.isOpaque=true
@@ -54,10 +54,14 @@ final class ExercisePDFRenderer:NSObject,WKNavigationDelegate {
 }
 
 final class ExercisePageRenderer:UIPrintPageRenderer {
+    static let pageSize=CGSize(width:595.28,height:841.89)
+    static let margin:CGFloat=42.52
+    static let bandHeight:CGFloat=18
+    static var contentSize:CGSize {CGSize(width:pageSize.width-2*margin,height:pageSize.height-2*(margin+bandHeight))}
     let title:String
-    override var paperRect:CGRect {CGRect(x:0,y:0,width:595.28,height:841.89)}
-    override var printableRect:CGRect {paperRect.insetBy(dx:42.52,dy:42.52)}
-    init(title:String) {self.title=title;super.init();headerHeight=18;footerHeight=18}
+    override var paperRect:CGRect {CGRect(origin:.zero,size:Self.pageSize)}
+    override var printableRect:CGRect {paperRect.insetBy(dx:Self.margin,dy:Self.margin)}
+    init(title:String) {self.title=title;super.init();headerHeight=Self.bandHeight;footerHeight=Self.bandHeight}
     override func drawHeaderForPage(at pageIndex:Int,in headerRect:CGRect) {
         (title as NSString).draw(in:headerRect,withAttributes:[.font:UIFont.systemFont(ofSize:8),.foregroundColor:UIColor.darkGray])
     }
