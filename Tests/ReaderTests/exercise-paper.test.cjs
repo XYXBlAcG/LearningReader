@@ -15,9 +15,9 @@ test('paper keeps instructions, original numbering and formulas while moving ref
  const result=await dom.window.ReaderPaper.prepare(source,{title:'练习',answers:false,space:'medium'},()=>null);
  const article=dom.window.document.getElementById('article');article.innerHTML=result.html;
  assert.match(article.textContent,/请写出过程/);assert.match(article.textContent,/补充条件/);assert.doesNotMatch(article.textContent,/秘密答案/);
- assert.equal(result.questionCount,3);assert.equal(article.querySelector('ol').start,7);assert.equal(article.querySelectorAll('.paper-space').length,3);assert.match(result.html,/x\^2/);
+ assert.equal(result.questionCount,3);assert.equal(article.querySelector('ol').start,7);assert.equal(article.querySelectorAll('.paper-question[data-space]').length,3);assert.match(result.html,/x\^2/);
  const full=await dom.window.ReaderPaper.prepare(source,{title:'练习',answers:true,space:'none'},()=>null);
- article.innerHTML=full.html;assert.match(article.querySelector('.paper-answers').textContent,/秘密答案C/);assert.equal(article.querySelectorAll('.paper-space').length,0);assert.equal(full.warnings.length,0);
+ article.innerHTML=full.html;assert.match(article.querySelector('.paper-answers').textContent,/秘密答案C/);assert.equal(article.querySelectorAll('.paper-question[data-space]').length,0);assert.equal(full.warnings.length,0);
  }finally{dom.window.close();}
 });
 test('paper reports ambiguous boundaries and does not delete unrelated reference material',async()=>{

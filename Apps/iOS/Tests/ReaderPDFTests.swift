@@ -31,6 +31,7 @@ final class ReaderPDFTests:XCTestCase {
             if name=="answers" {XCTAssertTrue(text.contains("参考答案"));XCTAssertGreaterThan(document.pageCount,1)}
             if name=="long" {
                 XCTAssertGreaterThan(document.pageCount,2)
+                XCTAssertGreaterThan(document.page(at:document.pageCount-1)?.string?.count ?? 0,50)
                 let math=try await renderer.web.readerJavaScript("return {formulas:document.querySelectorAll('mjx-container').length,errors:document.querySelectorAll('[data-mjx-error],mjx-merror').length,images:[...document.images].every(i=>i.complete&&i.naturalWidth>0)}",world:.page) as? [String:Any]
                 XCTAssertEqual(math?["formulas"] as? Int,87)
                 XCTAssertEqual(math?["errors"] as? Int,0)

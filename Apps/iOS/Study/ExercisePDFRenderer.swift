@@ -63,10 +63,12 @@ final class ExercisePageRenderer:UIPrintPageRenderer {
     override var printableRect:CGRect {paperRect.insetBy(dx:Self.margin,dy:Self.margin)}
     init(title:String) {self.title=title;super.init();headerHeight=Self.bandHeight;footerHeight=Self.bandHeight}
     override func drawHeaderForPage(at pageIndex:Int,in headerRect:CGRect) {
-        (title as NSString).draw(in:headerRect,withAttributes:[.font:UIFont.systemFont(ofSize:8),.foregroundColor:UIColor.darkGray])
+        let area=CGRect(x:printableRect.minX,y:printableRect.minY,width:printableRect.width,height:headerHeight)
+        (title as NSString).draw(in:area,withAttributes:[.font:UIFont.systemFont(ofSize:8),.foregroundColor:UIColor.darkGray])
     }
     override func drawFooterForPage(at pageIndex:Int,in footerRect:CGRect) {
         let style=NSMutableParagraphStyle();style.alignment = .center
-        ("\(pageIndex+1) / \(numberOfPages)" as NSString).draw(in:footerRect,withAttributes:[.font:UIFont.systemFont(ofSize:8),.paragraphStyle:style,.foregroundColor:UIColor.darkGray])
+        let area=CGRect(x:printableRect.minX,y:printableRect.maxY-footerHeight,width:printableRect.width,height:footerHeight)
+        ("\(pageIndex+1) / \(numberOfPages)" as NSString).draw(in:area,withAttributes:[.font:UIFont.systemFont(ofSize:8),.paragraphStyle:style,.foregroundColor:UIColor.darkGray])
     }
 }

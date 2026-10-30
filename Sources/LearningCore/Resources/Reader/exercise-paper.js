@@ -24,7 +24,7 @@
    if(range.itemIndex===null){item.before(group);group.append(item);}else{item.append(group);while(item.firstChild!==group)group.append(item.firstChild);}
    group.append(...nodes.slice(range.listIndex+1,range.endIndex));
    if(options.space==='medium'||options.space==='large'){
-    const space=document.createElement('div');space.className='paper-space '+options.space;space.setAttribute('aria-hidden','true');group.append(space);
+    group.dataset.space=options.space;
    }
   }
   if(!ranges.length)warnings.push('未识别到标准题号，已保留正文，请核对整套题是否完整。');
