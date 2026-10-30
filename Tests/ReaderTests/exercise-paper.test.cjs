@@ -49,3 +49,13 @@ test('compact lists and titled questions retain all nested statements exactly on
  assert.equal(result.questionCount,2);assert.match(result.html,/条件乙/);assert.doesNotMatch(result.html,/答案甲/);assert.equal(result.html.match(/条件乙/g).length,1);
  }finally{dom.window.close();}
 });
+
+test('answer appendix retains subject headings for repeated question numbers',async()=>{
+ const dom=paper();try{
+ const source='## 微积分\n\n### 题目\n\n1. 甲题\n\n### 参考答案\n\n1. 甲答案\n\n## 线性代数\n\n### 题目\n\n1. 乙题\n\n### 参考答案\n\n1. 乙答案';
+ const result=await dom.window.ReaderPaper.prepare(source,{answers:true},()=>null);
+ const wrapper=dom.window.document.createElement('div');wrapper.innerHTML=result.html;
+ const appendix=wrapper.querySelector('.paper-answers');
+ assert.deepEqual(Array.from(appendix.querySelectorAll('h2'),n=>n.textContent),['微积分','线性代数']);
+ }finally{dom.window.close();}
+});

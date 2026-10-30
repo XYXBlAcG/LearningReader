@@ -3,11 +3,17 @@
  async function prepare(source,options={},resolve){
   const document=root.document,content=document.createElement('div'),body=document.createElement('section'),answers=document.createElement('section');
   content.innerHTML=ReaderMarkdown.render(source);
-  const warnings=[];let answerLevel=null,referenceCount=0;
+  const warnings=[],ancestors=[];let answerLevel=null,referenceCount=0;
   for(const node of [...content.children]){
    const level=/^H[1-6]$/.test(node.tagName)?Number(node.tagName[1]):null;
-   if(ReaderExerciseCopy.isReferenceHeading(node)){answerLevel=level;referenceCount++;}
-   else if(level!==null&&answerLevel!==null&&level<=answerLevel)answerLevel=null;
+   if(level!==null&&answerLevel!==null&&level<=answerLevel)answerLevel=null;
+   if(answerLevel===null&&level!==null){
+    while(ancestors.length&&ancestors.at(-1).level>=level)ancestors.pop();
+    if(ReaderExerciseCopy.isReferenceHeading(node)){
+     for(const ancestor of ancestors.filter(item=>item.level>1))answers.append(ancestor.node.cloneNode(true));
+     answerLevel=level;referenceCount++;
+    }else ancestors.push({level,node});
+   }
    (answerLevel!==null?answers:body).append(node);
   }
   if(!referenceCount)warnings.push('未找到明确的参考答案分区，请在预览中核对是否包含答案。');

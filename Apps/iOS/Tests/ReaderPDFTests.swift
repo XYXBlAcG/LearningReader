@@ -34,7 +34,7 @@ final class ReaderPDFTests:XCTestCase {
             if name=="long" {
                 XCTAssertGreaterThan(document.pageCount,2)
                 let math=try await renderer.web.readerJavaScript("return {formulas:document.querySelectorAll('mjx-container').length,errors:document.querySelectorAll('[data-mjx-error],mjx-merror').length,images:[...document.images].every(i=>i.complete&&i.naturalWidth>0)}",world:.page) as? [String:Any]
-                XCTAssertEqual(math?["formulas"] as? Int,86)
+                XCTAssertEqual(math?["formulas"] as? Int,87)
                 XCTAssertEqual(math?["errors"] as? Int,0)
                 XCTAssertEqual(math?["images"] as? Bool,true)
             }
