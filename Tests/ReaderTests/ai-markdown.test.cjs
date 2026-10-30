@@ -127,3 +127,14 @@ test('streamed strong punctuation renders when the closing delimiter arrives', a
     assert.equal(article.querySelector('strong').textContent, '“重点”');
   } finally { dom.window.close(); }
 });
+
+test('identical answer updates and viewport height changes preserve DOM, formulas and selection',async()=>{
+ const dom=await reader();try{
+ const w=dom.window;w.scrollTo=()=>{};
+ for(const file of ['code-blocks.js','ai-answer.js'])w.eval(fs.readFileSync(path.join(root,file),'utf8'));
+ const source='解释 $x^2$';await w.AIAnswer.update(source,false,120);
+ const article=w.document.getElementById('article'),formula=article.querySelector('mjx-container');
+ for(let height=300;height<600;height+=15){Object.defineProperty(w,'innerHeight',{value:height,configurable:true});w.dispatchEvent(new w.Event('resize'));await w.AIAnswer.update(source,false,120);}
+ assert.equal(article.querySelector('mjx-container'),formula);assert.equal([...w.MathJax.startup.document.math].length,1);
+ }finally{dom.window.close();}
+});

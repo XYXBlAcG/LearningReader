@@ -66,3 +66,31 @@ public struct ReaderSearchResult:Decodable,Identifiable,Sendable {
     public var id:String { target.id }
     public var title:String { heading.flatMap { $0.isEmpty ? nil : $0 } ?? documentLabel ?? path }
 }
+
+public struct CourseTreeRow:Identifiable,Sendable {
+    public let node:CourseNavigationNode
+    public let depth:Int
+    public var id:String {node.id}
+}
+
+public struct CourseTreeExpansion:Sendable {
+    public private(set) var expandedIDs:Set<String>=[]
+    public init() {}
+    public mutating func toggle(_ id:String) {
+        if !expandedIDs.insert(id).inserted {expandedIDs.remove(id)}
+    }
+    public mutating func reveal(_ target:ReaderDocumentTarget,in nodes:[CourseNavigationNode]) {
+        for node in nodes where node.item == nil {
+            if target.path.hasPrefix(node.path+"/") && node.id.hasPrefix(target.kind.rawValue+":") {
+                expandedIDs.insert(node.id)
+                reveal(target,in:node.children ?? [])
+            }
+        }
+    }
+    public func rows(_ nodes:[CourseNavigationNode],depth:Int=0)->[CourseTreeRow] {
+        nodes.flatMap { node in
+            let row=CourseTreeRow(node:node,depth:depth)
+            return [row]+(expandedIDs.contains(node.id) ? rows(node.children ?? [],depth:depth+1):[])
+        }
+    }
+}

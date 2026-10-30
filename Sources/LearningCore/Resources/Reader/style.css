@@ -928,6 +928,8 @@ body.immersive #outlineResize { display: none; }
 }
 .ref-toggle:hover { border-color: var(--accent); }
 .ref-toggle .caret {
+  flex: 0 0 20px;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -939,6 +941,7 @@ body.immersive #outlineResize { display: none; }
   color: var(--accent);
   transition: transform .2s ease;
 }
+.ref-toggle .caret svg { display:block; width:14px; height:14px; overflow:visible; }
 .ref-toggle.open .caret { transform: rotate(90deg); }
 .ref-body { display: none; }
 .ref-body.open { display: block; }

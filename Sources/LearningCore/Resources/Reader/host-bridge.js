@@ -10,6 +10,7 @@
       connected: false,
       identity() { return controller.identity?.() || ''; },
       material() { return controller.material?.() || null; },
+      paper(options) { return controller.paper(options); },
       prepareMaterial(value) { return controller.prepareMaterial?.(value) || value; },
       prepareSelection() { controller.material?.(); },
       search(query) { return controller.search?.(query) || []; },

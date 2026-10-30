@@ -8,6 +8,7 @@ struct NativeCourseSidebar:View {
     var onStudies:(()->Void)?=nil
     let onOpen:(ReaderDocumentTarget)->Void
     @State private var index:CourseNavigationIndex?
+    @State private var expansion=CourseTreeExpansion()
     @State private var query=""
     @State private var results:[ReaderSearchResult]=[]
     @State private var issue:String?
@@ -36,8 +37,19 @@ struct NativeCourseSidebar:View {
                 ForEach(snapshot.course.manifest.sections.indices,id:\.self) { position in
                     let section=snapshot.course.manifest.sections[position]
                     Section(section.title) {
-                        ForEach(index.tree(kind:section.kind,sectionRoot:section.path)) { node in
-                            CourseTreeRow(node:node,reader:reader,onOpen:onOpen)
+                        ForEach(expansion.rows(index.tree(kind:section.kind,sectionRoot:section.path))) { row in
+                            Group {
+                                if let item=row.node.item { CourseDocumentRow(item:item,reader:reader,onOpen:onOpen) }
+                                else {
+                                    Button { expansion.toggle(row.id) } label: {
+                                        HStack(spacing:8) {
+                                            Image(systemName:expansion.expandedIDs.contains(row.id) ? "chevron.down":"chevron.right")
+                                                .font(.caption).frame(width:14)
+                                            Label(row.node.label,systemImage:"folder").lineLimit(2)
+                                        }.foregroundStyle(.primary)
+                                    }.accessibilityValue(expansion.expandedIDs.contains(row.id) ? "已展开":"已收起")
+                                }
+                            }.padding(.leading,CGFloat(row.depth)*16)
                         }
                     }
                 }
@@ -49,8 +61,20 @@ struct NativeCourseSidebar:View {
         .task(id:snapshot.id) {
             do {
                 guard let data=snapshot.course.indices["index.json"] else { throw ReaderError.invalidIndex }
-                index=try CourseNavigationIndex(data:data)
+                let loaded=try CourseNavigationIndex(data:data)
+                index=loaded
+                if let kind=reader.state?.documentKind.flatMap(DocumentKind.init(rawValue:)),let path=reader.state?.path {
+                    for section in snapshot.course.manifest.sections {
+                        expansion.reveal(.init(kind:kind,path:path),in:loaded.tree(kind:section.kind,sectionRoot:section.path))
+                    }
+                }
             } catch { issue=error.localizedDescription }
+        }
+        .onChange(of:(reader.state?.documentKind ?? "")+":"+(reader.state?.path ?? "")) {
+            guard let index,let kind=reader.state?.documentKind.flatMap(DocumentKind.init(rawValue:)),let path=reader.state?.path else {return}
+            for section in snapshot.course.manifest.sections {
+                expansion.reveal(.init(kind:kind,path:path),in:index.tree(kind:section.kind,sectionRoot:section.path))
+            }
         }
         .task(id:query+":"+(reader.state?.searchStatus ?? "")) {
             guard !query.isEmpty, reader.state?.searchStatus == "ready" else { results=[];return }
@@ -60,25 +84,6 @@ struct NativeCourseSidebar:View {
                 if !Task.isCancelled && query==requested { results=found;issue=nil }
             } catch { if !Task.isCancelled { issue=error.localizedDescription } }
         }
-    }
-}
-
-struct CourseTreeRow:View {
-    let node:CourseNavigationNode
-    @ObservedObject var reader:ReaderController
-    let onOpen:(ReaderDocumentTarget)->Void
-    @State private var expanded=false
-    var body:some View {
-        Group {
-            if let item=node.item { CourseDocumentRow(item:item,reader:reader,onOpen:onOpen) }
-            else {
-                DisclosureGroup(isExpanded:$expanded) {
-                    ForEach(node.children ?? []) { child in CourseTreeRow(node:child,reader:reader,onOpen:onOpen) }
-                } label: { Label(node.label,systemImage:"folder") }
-            }
-        }
-        .onAppear { expanded=reader.state?.path.hasPrefix(node.path+"/") == true }
-        .onChange(of:reader.state?.path) { if reader.state?.path.hasPrefix(node.path+"/") == true { expanded=true } }
     }
 }
 

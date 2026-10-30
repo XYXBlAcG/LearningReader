@@ -8,8 +8,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     CODE_SIGNING_ALLOWED: NO
-    MARKETING_VERSION: "2.6"
-    CURRENT_PROJECT_VERSION: "10"
+    MARKETING_VERSION: "2.7"
+    CURRENT_PROJECT_VERSION: "11"
 packages:
   LearningCore:
     path: ../..
@@ -56,8 +56,23 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+  ReaderPDFTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+      - path: ../../build/paper-fixtures
+        type: folder
+    dependencies:
+      - target: LearningReader
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   LearningReader:
     build:
       targets:
         LearningReader: all
+    test:
+      targets:
+        - ReaderPDFTests

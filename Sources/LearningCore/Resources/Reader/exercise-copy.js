@@ -10,7 +10,7 @@
   }
 
   function isReferenceHeading(node) {
-    return isHeading(node) && /^参考答案/.test(String(node.textContent || "").trim());
+    return isHeading(node) && /^参考(?:答案|解答|解析)/.test(String(node.textContent || "").trim());
   }
 
   function listItems(node) {
@@ -170,7 +170,7 @@
     });
   }
 
-  const api = { copyText, enhance, formatSubquestions, questionRanges, questionSource };
+  const api = { copyText, enhance, formatSubquestions, questionRanges, isReferenceHeading, questionSource };
   root.ReaderExerciseCopy = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window === "undefined" ? globalThis : window);

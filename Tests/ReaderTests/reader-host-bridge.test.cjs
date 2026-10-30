@@ -12,3 +12,9 @@ test('native bridge only hides web controls after connecting and publishes share
   bridge.dispatch('back');
   assert.deepEqual(calls, [['back', undefined]]);
 });
+
+test('paper export forwards options and awaits resource preparation',async()=>{
+ const options={answers:false,space:'medium'};
+ const bridge=createBridge({paper:async value=>({title:'试卷',html:value.space})},()=>{});
+ assert.deepEqual(await bridge.paper(options),{title:'试卷',html:'medium'});
+});

@@ -27,6 +27,7 @@ struct LearningView: View {
     @State private var settings = false
     @State private var history = false
     @State private var localStudies=false
+    @State private var exportPaper=false
     @State private var reference:ReferenceStudy?
     @State private var tools = false
     @State private var columns:NavigationSplitViewVisibility = .automatic
@@ -80,6 +81,8 @@ struct LearningView: View {
                         }
                         Button("对应笔记或练习", systemImage: "arrow.left.arrow.right") { reader.send("counterpart") }.disabled(reader.state?.counterpart.isEmpty != false)
                         Button(reader.state?.pinned == true ? "取消置顶" : "置顶本页", systemImage: "pin") { reader.send("pin") }
+                        Button("导出试卷 PDF",systemImage:"printer") {exportPaper=true}
+                            .disabled(reader.state?.documentKind != "exercise" || reader.state?.hasDocument != true)
                         Section("阅读") {
                             Button("放大正文", systemImage: "textformat.size.larger") { reader.send("zoomIn") }
                             Button("缩小正文", systemImage: "textformat.size.smaller") { reader.send("zoomOut") }
@@ -105,6 +108,7 @@ struct LearningView: View {
                 ReaderToolsView(snapshot:model.snapshot,reader:reader,presented:$tools,onOpen:open)
             }
             .fullScreenCover(item:$reference){ReferenceStudyView(study:$0)}
+            .sheet(isPresented:$exportPaper){ExerciseExportView(reader:reader)}
             .sheet(isPresented:$localStudies){StudyLibraryView(courseID:model.selected?.id)}
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
             .sheet(isPresented: $settings) { AppSettingsView(model: model) }

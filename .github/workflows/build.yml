@@ -18,7 +18,7 @@ concurrency:
 jobs:
   clients:
     runs-on: ${{ inputs.runner || 'macos-15' }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,10 +49,23 @@ jobs:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          node Tools/prepare_paper_fixture.cjs
           xcodegen generate --spec Apps/iOS/project.yml
       - name: Build iOS app
         run: |
           xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/iOS CODE_SIGNING_ALLOWED=NO build > build/ios-build.log 2>&1 || { tail -160 build/ios-build.log; exit 1; }
+      - name: PDF renderer checks
+        run: |
+          device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for runtime,items in devices.items() if ".iOS-" in runtime for d in items if d["name"].startswith("iPhone")))')
+          xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Debug -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/PDFTests CODE_SIGNING_ALLOWED=NO test -parallel-testing-enabled NO -only-testing:ReaderPDFTests > build/pdf-tests.log 2>&1 || { tail -160 build/pdf-tests.log; exit 1; }
+          container=$(xcrun simctl get_app_container "$device" chatgpt.nice114514.MathLearning data)
+          mkdir -p build/PrintValidation
+          cp "$container"/Documents/PrintValidation/*.pdf build/PrintValidation/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrintValidation
+          path: build/PrintValidation
+          if-no-files-found: error
       - name: Package
         run: |
           mkdir -p build/ipa/Payload
@@ -79,5 +92,7 @@ jobs:
         if: failure()
         with:
           name: build-log
-          path: build/ios-build.log
+          path: |
+            build/ios-build.log
+            build/pdf-tests.log
           if-no-files-found: ignore

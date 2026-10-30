@@ -1,6 +1,6 @@
 (function(root) {
   'use strict';
-  let pending = null, rendering = false, first=true, followOutput=true, initialPosition=0, scrollTimer;
+  let previous=null, pending = null, rendering = false, first=true, followOutput=true, initialPosition=0, scrollTimer;
   window.addEventListener('scroll',()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(()=>window.webkit?.messageHandlers?.studyPosition?.postMessage(window.scrollY),300);});
   ReaderSelectionCopy.bind(document.getElementById('article'));
   async function update(source,follow=true,position=0) {
@@ -12,6 +12,7 @@
       await MathJax.startup.promise;
       while (pending !== null) {
         const value = pending; pending = null;
+        if(value===previous)continue;
         const article = document.getElementById('article');
         const following = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 80;
         const position = window.scrollY;
@@ -20,7 +21,7 @@
         ReaderCodeBlocks.enhance(article);
         await MathJax.typesetPromise([article]);
         window.scrollTo(0,first?initialPosition:followOutput&&following?document.documentElement.scrollHeight:position);
-        first=false;
+        previous=value;first=false;
       }
     } finally { rendering = false; }
   }

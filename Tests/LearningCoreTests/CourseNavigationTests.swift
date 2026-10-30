@@ -20,4 +20,20 @@ final class CourseNavigationTests:XCTestCase {
     func testIndexRejectsEscapingDocumentPaths() {
         XCTAssertThrowsError(try CourseNavigationIndex(data:Data(#"{"notes":[{"path":"../private.md","label":"bad"}],"exercises":[]}"#.utf8)))
     }
+    func testExpansionSurvivesRowRecreationAndOnlyRevealsCurrentAncestors() throws {
+        let index=try CourseNavigationIndex(data:Data(#"{"notes":[{"path":"lessons/a/one.md","label":"A"},{"path":"lessons/b/nested/two.md","label":"B"}],"exercises":[]}"#.utf8))
+        let tree=index.tree(kind:.note,sectionRoot:"lessons")
+        var expansion=CourseTreeExpansion()
+        expansion.toggle(tree[0].id)
+        expansion.toggle(tree[1].id)
+        let before=expansion.rows(tree)
+        XCTAssertEqual(before.map(\.depth),[0,1,0,1])
+        XCTAssertEqual(expansion.rows(index.tree(kind:.note,sectionRoot:"lessons")).map(\.id),before.map(\.id))
+        expansion.reveal(.init(kind:.note,path:"lessons/b/nested/two.md"),in:tree)
+        XCTAssertEqual(expansion.rows(tree).count,5)
+        expansion.toggle(tree[1].id)
+        XCTAssertEqual(expansion.rows(tree).count,3)
+        XCTAssertTrue(expansion.expandedIDs.contains(tree[0].id))
+    }
+
 }

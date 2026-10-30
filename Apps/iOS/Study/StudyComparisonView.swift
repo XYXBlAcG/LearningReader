@@ -9,6 +9,7 @@ struct StudyComparisonView<Answer:View>:View {
     @State private var dragStart:Double?
     @State private var collapsed=false
     @State private var expanded=false
+    @Namespace private var splitSpace
     private var questionMarkdown:String {
         guard let image else { return question }
         return "![题图](data:"+image.mimeType+";base64,"+image.data.base64EncodedString()+")\n\n"+question
@@ -22,18 +23,22 @@ struct StudyComparisonView<Answer:View>:View {
                     Button { expanded=true } label:{Image(systemName:"arrow.up.left.and.arrow.down.right")}.accessibilityLabel("展开题目")
                     Button { collapsed.toggle() } label:{Image(systemName:collapsed ? "chevron.down":"chevron.up")}.accessibilityLabel(collapsed ? "显示题目":"收起题目")
                 }.padding(.horizontal).padding(.vertical,6)
+                MarkdownContentView(markdown:questionMarkdown)
+                    .frame(height:collapsed ? 0:max(0,(geometry.size.height-49)*share)).clipped()
+                    .accessibilityHidden(collapsed)
                 if !collapsed {
-                    MarkdownContentView(markdown:questionMarkdown).frame(height:max(60,geometry.size.height*share-35))
                     Capsule().fill(.secondary.opacity(0.3)).frame(width:44,height:4).frame(maxWidth:.infinity).frame(height:14).contentShape(Rectangle())
-                        .gesture(DragGesture().onChanged{value in
+                        .gesture(DragGesture(coordinateSpace:.named(splitSpace)).onChanged{value in
                             if dragStart==nil {dragStart=share}
-                            share=min(0.65,max(0.15,(dragStart ?? share)+value.translation.height/max(1,geometry.size.height)))
+                            share=min(0.65,max(0.15,(dragStart ?? share)+value.translation.height/max(1,geometry.size.height-49)))
                         }.onEnded{_ in dragStart=nil})
                         .accessibilityLabel("调整题目区域高度")
                         .accessibilityAdjustableAction{direction in share=min(0.65,max(0.15,share+(direction == .increment ? 0.05 : -0.05)))}
                 }
                 answer().frame(maxWidth:.infinity,maxHeight:.infinity)
-            }
+                    .clipped()
+            }.coordinateSpace(name:splitSpace)
+                .transaction { $0.animation=nil }
         }
         .sheet(isPresented:$expanded) {
             NavigationStack {

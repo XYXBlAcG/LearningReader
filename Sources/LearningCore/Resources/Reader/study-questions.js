@@ -2,7 +2,7 @@
  'use strict';
  function build(article){
   const nodes=[...article.children];
-  const reference=nodes.findIndex(n=>/^H[1-6]$/.test(n.tagName)&&/^参考(?:答案|解答|解析)/.test(n.textContent.trim()));
+  const reference=nodes.findIndex(ReaderExerciseCopy.isReferenceHeading);
   if(reference<0)return [];
   function entries(children,requireReference){
    const sections=[],stack=[];
@@ -45,22 +45,25 @@
   const owner=element?.closest('[data-study-question],[data-study-answer]');
   return items.find(x=>x.id===(owner?.dataset.studyQuestion||owner?.dataset.studyAnswer))||null;
  }
+ async function imageData(src,resolve){
+  if(src.startsWith('data:image/'))return src;
+  const url=resolve(src);
+  if(!url)throw new Error('资源未离线保存：'+src);
+  const response=await fetch(url);if(!response.ok)throw new Error('无法读取 '+src+'（HTTP '+response.status+'）');
+  const blob=await response.blob();if(!blob.type.startsWith('image/')||blob.size>12*1024*1024)throw new Error('图片格式或大小不受支持：'+src);
+  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});
+ }
  async function assets(markdown,resolve){
   const images=[];marked.walkTokens(marked.lexer(markdown),token=>{if(token.type==='image')images.push(token);});
   const replacements=new Map();
   for(const image of images){
-   if(image.href.startsWith('data:'))continue;
-   const url=resolve(image.href);
-   if(!url){replacements.set(image.raw,'[图片未离线保存：'+image.text+']');continue;}
+   if(replacements.has(image.raw))continue;
    try{
-    const response=await fetch(url);if(!response.ok)throw new Error('HTTP '+response.status);
-    const blob=await response.blob();if(!blob.type.startsWith('image/')||blob.size>12*1024*1024)throw new Error('图片格式或大小不受支持');
-    const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});
-    replacements.set(image.raw,'!['+image.text+']('+data+')');
+    replacements.set(image.raw,'!['+image.text+']('+await imageData(image.href,resolve)+')');
    }catch(error){replacements.set(image.raw,'[图片未离线保存：'+image.text+'，'+error.message+']');}
   }
   for(const [raw,value] of replacements)markdown=markdown.split(raw).join(value);
   return markdown;
  }
- root.ReaderStudyQuestions={build,selected,assets};
+ root.ReaderStudyQuestions={build,selected,assets,imageData};
 })(window);

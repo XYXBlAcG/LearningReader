@@ -156,13 +156,13 @@ async function openReferenceStudy(button,selectedID=''){
 
 function studyAssets(markdown){return ReaderStudyQuestions.assets(markdown,src=>{if(src.startsWith('/media/'))return src;const path=localMediaPath(src);return path?encodeMediaPath(path):null;});}
 
-function localMediaPath(src) {
+function localMediaPath(src,owner=active) {
   if (!src || /^(?:https?:|data:|blob:|#)/i.test(src)) return null;
   let value;
   try { value = decodeURIComponent(src.split(/[?#]/)[0]); }
   catch { value = src.split(/[?#]/)[0]; }
   if (value.startsWith('/media/') || value.startsWith('/')) return null;
-  return ReaderCourseContext.normalize((active?.path.split('/').slice(0,-1).join('/')||'')+'/'+value);
+  return ReaderCourseContext.normalize((owner?.path.split('/').slice(0,-1).join('/')||'')+'/'+value);
 }
 
 function interactiveEmbed(img, path) {
@@ -359,7 +359,7 @@ function setupCollapsibleReferences(root) {
     }
     const btn = document.createElement("button");
     btn.className = "ref-toggle";
-    btn.innerHTML = '<span class="caret">▶</span><span>' +
+    btn.innerHTML = '<span class="caret" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3 L11 8 L5 13 Z" fill="currentColor"/></svg></span><span>' +
       escHtml((h.textContent || "").trim()) + "</span>";
     btn.onclick = async () => {
       if(window.READER_NATIVE_PANELS && studyQuestions.length){await openReferenceStudy(btn);return;}
@@ -994,6 +994,15 @@ applySidebar();
 
 const selectionCapture=ReaderExplanation.bindCourse(()=>active,$('article'),()=>$('crumb').textContent);
 hostBridge = ReaderHostBridge.install({
+  paper:async options=>{
+    const owner=active;
+    if(!owner||owner.kind!=='exercise'||documentRendering)throw new Error('请先打开一套练习并等待加载完成。');
+    const title=sidebarLabel(activePool().find(file=>file.path===owner.path)||{label:owner.path});
+    return ReaderPaper.prepare(owner.source,{...options,title},src=>{
+      if(src.startsWith('/media/'))return src;
+      const path=localMediaPath(src,owner);return path?encodeMediaPath(path):null;
+    });
+  },
   prepareMaterial:async value=>value?{...value,question:await studyAssets(value.question||value.text)}:null,
   identity: () => ReaderExplanation.identity(active, $('article')),
   material: () => {

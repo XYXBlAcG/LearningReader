@@ -16,7 +16,10 @@ struct MarkdownContentView: UIViewRepresentable {
         let web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = context.coordinator
         context.coordinator.onIssue = onIssue
-        web.isOpaque = false; web.backgroundColor = .white
+        web.isOpaque = true
+        web.backgroundColor = .white
+        web.scrollView.backgroundColor = .white
+        web.scrollView.contentInsetAdjustmentBehavior = .never
         context.coordinator.markdown = markdown
         web.loadFileURL(ReaderAssets.reader.appendingPathComponent("ai-answer.html"), allowingReadAccessTo: ReaderAssets.reader)
         return web
