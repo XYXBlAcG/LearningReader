@@ -6,6 +6,9 @@ import LearningCore
 struct ExerciseExportView:View {
     @ObservedObject var reader:ReaderController
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("paperHeader") private var header=false
+    @AppStorage("paperFooter") private var footer=false
+    @AppStorage("paperFullBody") private var fullBody=false
     @State private var answers=false
     @State private var space="medium"
     @State private var generating=false
@@ -24,6 +27,9 @@ struct ExerciseExportView:View {
                         Text("更多").tag("large")
                     }
                     Toggle("答案另起页附后",isOn:$answers)
+                    Toggle("显示页眉",isOn:$header)
+                    Toggle("显示页脚／页码",isOn:$footer)
+                    Toggle("保留完整正文",isOn:$fullBody)
                 }.disabled(generating)
                 if let issue {Text(issue).foregroundStyle(.red)}
                 if let paper {
@@ -50,11 +56,11 @@ struct ExerciseExportView:View {
                 defer {generating=false}
                 do {
                     guard let web=reader.webView else {throw ReaderError.missingContent}
-                    let raw=try await web.readerJavaScript("return await window.MathReaderBridge.paper(options)",arguments:["options":["answers":answers,"space":space]],world:.page)
+                    let raw=try await web.readerJavaScript("return await window.MathReaderBridge.paper(options)",arguments:["options":["answers":answers,"space":space,"questionsOnly":!fullBody]],world:.page)
                     guard let raw else {throw ReaderError.invalidIndex}
                     let prepared=try JSONDecoder().decode(ExercisePaper.self,from:JSONSerialization.data(withJSONObject:raw))
                     paper=prepared
-                    let data=try await renderer.export(prepared)
+                    let data=try await renderer.export(prepared,header:header,footer:footer)
                     try Task.checkCancellation()
                     let folder=FileManager.default.temporaryDirectory.appendingPathComponent("ExercisePDF/"+UUID().uuidString,isDirectory:true)
                     try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)

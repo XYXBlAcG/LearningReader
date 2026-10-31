@@ -7,5 +7,5 @@ const graphPanel=ReaderKnowledgeGraph.createView({
   mode:document.getElementById('graphMode'),
   onNavigate:node=>window.webkit.messageHandlers.graphNavigate.postMessage({kind:node.kind,path:node.path,anchor:node.anchor || ''}),
 });
-window.NativeGraph={update(graph,kind,path){graphPanel.setData(graph);graphPanel.showDocument(kind,path);}};
+window.NativeGraph={update(graph,kind,path,global){graphPanel.setGlobal(global);graphPanel.setData(graph);graphPanel.showDocument(kind,path);}};
 window.addEventListener('resize',()=>graphPanel.resize());

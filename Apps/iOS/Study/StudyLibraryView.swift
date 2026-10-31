@@ -16,7 +16,6 @@ struct StudyLibraryView:View {
     @State private var editMode:EditMode = .inactive
     @State private var opened:StudyRecord?
     @State private var renaming:StudySummary?
-    @State private var title=""
     @State private var importing=false
     @State private var exporting=false
     @State private var document:StudyDataDocument?
@@ -51,7 +50,7 @@ struct StudyLibraryView:View {
                     }.tag(record.id)
                     .swipeActions(edge:.leading){Button("删除",role:.destructive){library.delete([record.id])}}
                     .contextMenu {
-                        Button("修改标题",systemImage:"pencil"){title=record.title;renaming=record}
+                        Button("修改标题",systemImage:"pencil"){renaming=record}
                         Button("删除",systemImage:"trash",role:.destructive){library.delete([record.id])}
                     }
                 }
@@ -65,7 +64,10 @@ struct StudyLibraryView:View {
             .toolbar {
                 ToolbarItem(placement:.cancellationAction){Button("完成"){dismiss()}}
                 ToolbarItemGroup(placement:.primaryAction){
-                    EditButton()
+                    Button(editMode.isEditing ? "完成选择":"选择") {
+                        editMode=editMode.isEditing ? .inactive:.active
+                    }
+                    if editMode.isEditing {Text("已选 \(selection.count) 项").font(.caption).foregroundStyle(.secondary)}
                     Menu {
                         Button("导出全部讲解备份",systemImage:"square.and.arrow.up"){
                             if let data=library.backup(){document=StudyDataDocument(data:data);exporting=true}
@@ -75,10 +77,11 @@ struct StudyLibraryView:View {
                     }label:{Image(systemName:"ellipsis.circle")}
                 }
             }
-            .alert("修改标题",isPresented:Binding(get:{renaming != nil},set:{if !$0 {renaming=nil}})) {
-                TextField("标题",text:$title)
-                Button("取消",role:.cancel){renaming=nil}
-                Button("保存"){if let record=renaming {library.rename(record.id,title:title)};renaming=nil}
+            .sheet(item:$renaming){record in
+                StudyTitleEditor(initial:record.title,onSave:{value in
+                    library.rename(record.id,title:value)
+                    return library.issue==nil ? nil:library.issue
+                })
             }
             .fileExporter(isPresented:$exporting,document:document,contentType:.json,defaultFilename:"LearningReader-Study-Backup"){result in if case .failure(let error)=result {library.issue=error.localizedDescription}}
             .fileImporter(isPresented:$importing,allowedContentTypes:[.json,.zip]){result in
@@ -150,7 +153,7 @@ struct SavedStudyView:View {
                 }
             }
             Button(library.hiddenAnnotations.contains(record.id.uuidString) ? "恢复原文高亮":"取消原文高亮"){library.toggleAnnotation(record.id)}
-            Button("编辑讲解",systemImage:"pencil"){editedAnswer=version?.answer ?? "";editingAnswer=true}
+            Button("修改讲解内容",systemImage:"pencil"){editedAnswer=version?.answer ?? "";editingAnswer=true}
             Button("复制讲解",systemImage:"doc.on.doc"){UIPasteboard.general.string=version?.transcript}
             Button("导出 Markdown",systemImage:"square.and.arrow.up"){
                 var markdown="# "+record.title+"\n\n## 题目\n\n"+record.question+"\n\n## 讲解\n\n"+(version?.transcript ?? "")

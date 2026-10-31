@@ -8,6 +8,8 @@ struct MarkdownContentView: UIViewRepresentable {
     var followsOutput=false
     var initialPosition:Double=0
     var onPosition:((Double)->Void)?
+    var onHeight:((Double)->Void)?
+    var onPresentTerm:(([String])->Void)?
     var onIssue:(String?)->Void = {_ in }
     func makeCoordinator() -> Coordinator { Coordinator(followsOutput:followsOutput,initialPosition:initialPosition,onPosition:onPosition,glossary:followsOutput ? nil : glossary) }
     func makeUIView(context: Context) -> WKWebView {
@@ -17,6 +19,9 @@ struct MarkdownContentView: UIViewRepresentable {
         configuration.userContentController.add(context.coordinator,name:"studyTerm")
         let web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = context.coordinator
+        context.coordinator.onHeight=onHeight
+        context.coordinator.onPresentTerm=onPresentTerm
+        web.scrollView.isScrollEnabled=onHeight==nil
         context.coordinator.onIssue = onIssue
         web.isOpaque = true
         web.backgroundColor = .white
@@ -27,6 +32,8 @@ struct MarkdownContentView: UIViewRepresentable {
         return web
     }
     func updateUIView(_ web: WKWebView, context: Context) {
+        context.coordinator.onHeight=onHeight
+        context.coordinator.onPresentTerm=onPresentTerm
         context.coordinator.onIssue = onIssue
         guard context.coordinator.markdown != markdown else { return }
         context.coordinator.markdown = markdown
@@ -46,20 +53,21 @@ struct MarkdownContentView: UIViewRepresentable {
         init(followsOutput:Bool,initialPosition:Double,onPosition:((Double)->Void)?,glossary:CourseGlossaryContext?) {self.followsOutput=followsOutput;self.initialPosition=initialPosition;self.onPosition=onPosition;self.glossary=glossary}
         func userContentController(_ controller:WKUserContentController,didReceive message:WKScriptMessage) {
             guard message.frameInfo.isMainFrame,message.frameInfo.request.url?.lastPathComponent=="ai-answer.html" else {return}
-            if message.name == "studyTerm",let glossary,
-               let data=try? JSONSerialization.data(withJSONObject:message.body),
-               let target=try? JSONDecoder().decode(ReaderDocumentTarget.self,from:data),glossary.targets.contains(target) {
-                glossary.open(target)
-            } else if message.name == "studyPosition",let value=message.body as? Double { onPosition?(value) }
+            if message.name == "studyTerm",let ids=message.body as? [String] {onPresentTerm?(ids);return}
+            if message.name == "studyPosition",let value=message.body as? Double { onPosition?(value) }
         }
         var markdown = ""
         var ready = false
+        var onHeight:((Double)->Void)?
+        var onPresentTerm:(([String])->Void)?
         var onIssue: ((String?) -> Void)?
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { ready = true; render(webView) }
         func render(_ web: WKWebView) {
             web.callAsyncJavaScript("await window.AIAnswer.update(source,follow,position,glossary,mode)", arguments: ["source":markdown,"follow":followsOutput,"position":initialPosition,"glossary":glossary?.json ?? "","mode":glossary?.mode ?? "off"], in: nil, in: .page) { [weak self] result in
                 switch result {
-                case .success: self?.onIssue?(nil)
+                case .success:
+                    self?.onIssue?(nil)
+                    if self?.onHeight != nil {web.callAsyncJavaScript("return document.getElementById('article').getBoundingClientRect().height+32",arguments:[:],in:nil,in:.page){result in if case .success(let value)=result,let height=value as? Double {self?.onHeight?(height)}}}
                 case .failure(let error): self?.onIssue?("回答排版失败：" + error.localizedDescription)
                 }
             }

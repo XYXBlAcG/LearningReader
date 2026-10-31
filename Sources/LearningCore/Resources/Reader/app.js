@@ -96,7 +96,7 @@ async function attachGlossary(article){
   try{
     const result=await glossaryReady;if(result.error)throw result.error;
     if(ticket!==glossaryGeneration||!article.isConnected)return;
-    const view=await ReaderGlossaryUI.mount(article,{library:result.data,mode:glossaryMode,typeset,onModeChange:changeGlossaryMode,onNavigate:note=>selectFile(note.kind,note.path,note.anchor)});
+    const view=await ReaderGlossaryUI.mount(article,{library:result.data,mode:glossaryMode,typeset,onPresent:window.READER_NATIVE_PANELS?ids=>window.webkit.messageHandlers.mathReader.postMessage({type:'glossary',ids}):null,onPresentLibrary:window.READER_NATIVE_PANELS?()=>window.webkit.messageHandlers.mathReader.postMessage({type:'glossary',ids:[]}):null,onModeChange:changeGlossaryMode,onNavigate:note=>selectFile(note.kind,note.path,note.anchor)});
     if(ticket!==glossaryGeneration||!article.isConnected){view.dispose();return;}
     glossaryView=view;
   }catch(error){
@@ -159,6 +159,7 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
   if (snapshot) for (const button of $('article').querySelectorAll('.ref-toggle')) {
     if (snapshot.references?.includes(button.textContent.trim())) {
       button.classList.add('open');button.nextElementSibling.classList.add('open');
+      if(window.READER_NATIVE_PANELS){const body=button.nextElementSibling,inline=body.nextElementSibling;if(inline?.hasAttribute('aria-expanded'))ReaderIOSPresentation.reference(inline,body,true);}
     }
   }
   ReaderProblemPreviews.enhance($("article"));
@@ -412,8 +413,9 @@ function setupCollapsibleReferences(root) {
       saveScroll();
     };
     if(window.READER_NATIVE_PANELS){
-      const inline=document.createElement('button');inline.type='button';inline.className='text-btn';inline.textContent='在原文展开';
-      inline.onclick=()=>{body.classList.toggle('open');saveScroll();};
+      if(studyQuestions.length)btn.querySelector('span:last-child').textContent='打开'+h.textContent.trim()+'对照';
+      const inline=document.createElement('button');inline.type='button';inline.className='text-btn';ReaderIOSPresentation.reference(inline,body,false);
+      inline.onclick=()=>{ReaderIOSPresentation.reference(inline,body,!body.classList.contains('open'));saveScroll();};
       h.after(inline);
     }
     h.replaceWith(btn);
@@ -1062,7 +1064,7 @@ hostBridge = ReaderHostBridge.install({
     pinnedKeys:pinnedFiles,
     canUndoHistory:!!navigation.deleted,
     searchStatus:searchState,
-    outlineItems:[...$('article').querySelectorAll('h1[id],h2[id],h3[id],h4[id]')].map(item=>({id:item.id,title:item.textContent,level:Number(item.tagName.slice(1))})),
+    outlineItems:[...$('article').querySelectorAll('h1[id],h2[id],h3[id],h4[id]')].map(item=>({id:item.id,title:window.READER_NATIVE_PANELS?ReaderIOSPresentation.outlineTitle(item):item.textContent,level:Number(item.tagName.slice(1))})),
     canBack: navigation.canBack, canForward: navigation.canForward,
     pinned: !!active && pinnedFiles.includes(PINNED_FILES.documentKey(active.kind, active.path)),
     counterpart: active && findCounterpart(active.kind, active.path) ? (active.kind === 'note' ? '对应题目' : '对应笔记') : '',
@@ -1092,6 +1094,7 @@ hostBridge = ReaderHostBridge.install({
       case 'graph': setOutline(true); setRightPanel(rightPanel === 'graph' ? 'outline' : 'graph'); break;
       case 'immersive': setImmersive(!immersive); break;
       case 'glossary': glossaryView?.openLibrary(); break;
+      case 'glossaryMode': changeGlossaryMode(payload.mode); break;
       case 'previews': togglePreview(); break;
       case 'zoomIn': setZoom(zoom + .05); break;
       case 'zoomOut': setZoom(zoom - .05); break;

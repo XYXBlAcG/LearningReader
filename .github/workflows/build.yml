@@ -2,6 +2,7 @@ name: Clients
 on:
   push:
     branches: [main, 'codex/**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
     inputs:
@@ -27,7 +28,9 @@ jobs:
         with:
           node-version: '22'
       - name: Course contract
-        run: python3 Tools/generate_contract.py --check
+        run: |
+          python3 Tools/generate_contract.py --check
+          python3 -m unittest discover -s Tests/ToolTests
       - name: Reader checks
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
@@ -111,3 +114,18 @@ jobs:
             build/CrashReports
             build/PDFValidation.xcresult
           if-no-files-found: ignore
+
+  release:
+    needs: clients
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified iOS artifact
+        run: gh run download "$GITHUB_RUN_ID" --name LearningReader-iOS --dir build/release-input
+      - name: Publish iOS release
+        run: python3 Tools/publish_ios.py

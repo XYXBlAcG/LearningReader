@@ -24,7 +24,8 @@ final class ExercisePDFRenderer:NSObject,WKNavigationDelegate {
         web.backgroundColor = .white
         web.scrollView.contentInsetAdjustmentBehavior = .never
     }
-    func export(_ paper:ExercisePaper) async throws -> Data {
+    func export(_ paper:ExercisePaper,header:Bool=true,footer:Bool=true) async throws -> Data {
+        web.frame.size=CGSize(width:ExercisePageRenderer.contentSize.width,height:ExercisePageRenderer.pageSize.height-2*ExercisePageRenderer.margin-(header ? ExercisePageRenderer.bandHeight:0)-(footer ? ExercisePageRenderer.bandHeight:0))
         try await withCheckedThrowingContinuation { continuation in
             loading=continuation
             web.loadFileURL(ReaderAssets.reader.appendingPathComponent("exercise-paper.html"),allowingReadAccessTo:ReaderAssets.reader)
@@ -33,7 +34,7 @@ final class ExercisePDFRenderer:NSObject,WKNavigationDelegate {
         let payload=try JSONSerialization.jsonObject(with:JSONEncoder().encode(paper))
         _=try await web.readerJavaScript("return await ReaderPaper.render(payload)",arguments:["payload":payload],world:.page)
         try Task.checkCancellation()
-        let pages=ExercisePageRenderer(title:paper.title)
+        let pages=ExercisePageRenderer(title:paper.title,header:header,footer:footer)
         pages.addPrintFormatter(web.viewPrintFormatter(),startingAtPageAt:0)
         pages.prepare(forDrawingPages:NSRange(location:0,length:1))
         guard pages.numberOfPages>0 else {throw ReaderError.course("试卷没有可打印的页面。")}
@@ -61,12 +62,14 @@ final class ExercisePageRenderer:UIPrintPageRenderer {
     let title:String
     override var paperRect:CGRect {CGRect(origin:.zero,size:Self.pageSize)}
     override var printableRect:CGRect {paperRect.insetBy(dx:Self.margin,dy:Self.margin)}
-    init(title:String) {self.title=title;super.init();headerHeight=Self.bandHeight;footerHeight=Self.bandHeight}
+    init(title:String,header:Bool=true,footer:Bool=true) {self.title=title;super.init();headerHeight=header ? Self.bandHeight:0;footerHeight=footer ? Self.bandHeight:0}
     override func drawHeaderForPage(at pageIndex:Int,in headerRect:CGRect) {
+        guard headerHeight>0 else {return}
         let area=CGRect(x:printableRect.minX,y:printableRect.minY,width:printableRect.width,height:headerHeight)
         (title as NSString).draw(in:area,withAttributes:[.font:UIFont.systemFont(ofSize:8),.foregroundColor:UIColor.darkGray])
     }
     override func drawFooterForPage(at pageIndex:Int,in footerRect:CGRect) {
+        guard footerHeight>0 else {return}
         let style=NSMutableParagraphStyle();style.alignment = .center
         let area=CGRect(x:printableRect.minX,y:printableRect.maxY-footerHeight,width:printableRect.width,height:footerHeight)
         ("\(pageIndex+1) / \(numberOfPages)" as NSString).draw(in:area,withAttributes:[.font:UIFont.systemFont(ofSize:8),.paragraphStyle:style,.foregroundColor:UIColor.darkGray])

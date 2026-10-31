@@ -9,8 +9,8 @@ settings:
     SWIFT_VERSION: "5.0"
     CODE_SIGNING_ALLOWED: NO
 configFiles:
-  Debug: ../../Config/Version.xcconfig
-  Release: ../../Config/Version.xcconfig
+  Debug: ../../Config/iOS-Version.xcconfig
+  Release: ../../Config/iOS-Version.xcconfig
 packages:
   LearningCore:
     path: ../..

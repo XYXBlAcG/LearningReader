@@ -55,3 +55,13 @@ test('nested excluded content cannot shift later term positions',async()=>{
  view.dispose();
  }finally{dom.window.close();}
 });
+test('native presentation delegates term and library without web dialogs',async()=>{
+ const dom=setup();try{
+  const w=dom.window,article=w.document.getElementById('article');article.innerHTML='<p>中值定理</p>';
+  let ids=null,opened=false;
+  const view=await w.ReaderGlossaryUI.mount(article,{library,onPresent:value=>{ids=value},onPresentLibrary:()=>{opened=true}});
+  await view.openTerm(['mean-value']);view.openLibrary();
+  assert.deepEqual(Array.from(ids),['mean-value']);assert.equal(opened,true);
+  assert.equal(w.document.querySelector('.glossary-card,.glossary-library'),null);view.dispose();
+ }finally{dom.window.close()}
+});

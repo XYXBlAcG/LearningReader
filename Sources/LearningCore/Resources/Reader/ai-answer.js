@@ -24,7 +24,7 @@
         await MathJax.typesetPromise([article]);
         if(glossary){
           const library=JSON.parse(glossary);
-          glossaryView=await ReaderGlossaryUI.mount(article,{library,mode,typeset:nodes=>MathJax.typesetPromise(nodes),onNavigate:note=>window.webkit?.messageHandlers?.studyTerm?.postMessage({kind:note.kind,path:note.path,anchor:note.anchor})});
+          glossaryView=await ReaderGlossaryUI.mount(article,{library,mode,onPresent:ids=>window.webkit?.messageHandlers?.studyTerm?.postMessage(ids),typeset:nodes=>MathJax.typesetPromise(nodes),onNavigate:note=>window.webkit?.messageHandlers?.studyTerm?.postMessage({kind:note.kind,path:note.path,anchor:note.anchor})});
         }
         window.scrollTo(0,first?initialPosition:followOutput&&following?document.documentElement.scrollHeight:position);
         previous=value;first=false;

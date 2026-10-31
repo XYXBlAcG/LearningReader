@@ -24,6 +24,30 @@
    (answerLevel!==null?answers:body).append(node);
   }
   if(!referenceCount&&!checkpoints.length)warnings.push('未找到明确的参考答案分区，请在预览中核对是否包含答案。');
+  if(options.questionsOnly){
+   for(const section of [body,answers]){
+    let skipped=null;
+    for(const node of [...section.children]){
+     const level=/^H[1-6]$/.test(node.tagName)?Number(node.tagName[1]):null;
+     if(skipped!==null&&level!==null&&level<=skipped)skipped=null;
+     if(level!==null&&/^(?:知识链接|知识关联|相关笔记|相关知识|延伸阅读|参考资料|参考文献|学习建议|导读|引文|来源)[:：]?$/.test(node.textContent.trim()))skipped=level;
+     if(skipped!==null)node.remove();
+    }
+   }
+   const children=[...body.children],questions=ReaderExerciseCopy.questionRanges(children,false);
+   const first=questions[0]?.listIndex ?? children.findIndex(n=>n.classList.contains('paper-question'));
+   let shared=null,omitted=false;
+   for(const [index,node] of children.entries()){
+    if(index>=first||first<0)break;
+    const level=/^H[1-6]$/.test(node.tagName)?Number(node.tagName[1]):null;
+    if(shared!==null&&level!==null&&level<=shared)shared=null;
+    if(level!==null&&/共用材料|公共题设|公共条件|题设|作答要求|注意事项|考试说明/.test(node.textContent))shared=level;
+    if(level!==null||shared!==null||node.matches('img,table,[data-math-source]')||node.querySelector('img,table,[data-math-source]')||/^(?:设|已知|以下各题|本题|请计算|请证明|作答)/.test(node.textContent.trim()))continue;
+    node.remove();omitted=true;
+   }
+   if(omitted)warnings.push('已省略题前导读；请核对共用题设，需要时开启“保留完整正文”。');
+   if(first<0)warnings.push('未能确定题目范围，已保留未识别正文，请核对预览。');
+  }
   const blockSelector='p,div,section,blockquote,pre,table,ol,ul,h1,h2,h3,h4,h5,h6,img,figure,hr,[data-math-block="true"]';
   const nodes=[...body.children],ranges=ReaderExerciseCopy.questionRanges(nodes,false);
   for(const range of [...ranges].reverse()){

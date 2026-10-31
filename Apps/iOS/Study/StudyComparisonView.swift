@@ -24,7 +24,7 @@ struct StudyComparisonView<Answer:View>:View {
                     Button { expanded=true } label:{Image(systemName:"arrow.up.left.and.arrow.down.right")}.accessibilityLabel("展开题目")
                     Button { collapsed.toggle() } label:{Image(systemName:collapsed ? "chevron.down":"chevron.up")}.accessibilityLabel(collapsed ? "显示题目":"收起题目")
                 }.padding(.horizontal).padding(.vertical,6)
-                MarkdownContentView(markdown:questionMarkdown)
+                GlossaryMarkdownContent(markdown:questionMarkdown)
                     .frame(height:collapsed ? 0:max(0,(geometry.size.height-49)*share)).clipped()
                     .accessibilityHidden(collapsed)
                 if !collapsed {
@@ -43,7 +43,7 @@ struct StudyComparisonView<Answer:View>:View {
         }
         .sheet(isPresented:$expanded) {
             NavigationStack {
-                MarkdownContentView(markdown:questionMarkdown).navigationTitle("题目")
+                GlossaryMarkdownContent(markdown:questionMarkdown).navigationTitle("题目")
                     .toolbar{ToolbarItem(placement:.confirmationAction){Button("完成"){expanded=false}}}
             }
         }
@@ -85,7 +85,7 @@ struct ReferenceStudyView:View {
                     StudyComparisonView(question:item.question) {
                         if item.answer.isEmpty {
                             ContentUnavailableView("未找到明确对应的答案",systemImage:"questionmark",description:Text("请回到原文核对答案，或使用讲一讲。"))
-                        } else {MarkdownContentView(markdown:item.answer)}
+                        } else {GlossaryMarkdownContent(markdown:item.answer)}
                     }.id(item.id)
                     HStack {
                         Button("上一题"){selected-=1}.disabled(selected==0)

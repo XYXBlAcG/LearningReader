@@ -45,3 +45,26 @@ final class ReaderPDFTests:XCTestCase {
         XCTAssertGreaterThan(counts["answers"] ?? 0,counts["questions"] ?? 0)
     }
 }
+
+extension ReaderPDFTests {
+    @MainActor
+    func testOptionalPageBandsReleasePrintSpace() async throws {
+        let plain=ExercisePageRenderer(title:"标题",header:false,footer:false)
+        let decorated=ExercisePageRenderer(title:"标题")
+        XCTAssertEqual(plain.headerHeight,0)
+        XCTAssertEqual(plain.footerHeight,0)
+        XCTAssertGreaterThan(decorated.headerHeight+decorated.footerHeight,0)
+        XCTAssertEqual(plain.printableRect,decorated.printableRect)
+        let renderer=ExercisePDFRenderer()
+        let scene=UIApplication.shared.connectedScenes.compactMap{$0 as? UIWindowScene}.first
+        let window=scene.map{UIWindow(windowScene:$0)} ?? UIWindow(frame:CGRect(x:0,y:0,width:600,height:850))
+        let controller=UIViewController();window.rootViewController=controller
+        controller.view.addSubview(renderer.web);window.isHidden=false
+        defer {window.isHidden=true}
+        let paper=ExercisePaper(title:"页眉专用测试标题",html:"<article><p>独立打印内容</p></article>",questionCount:1,warnings:[])
+        let data=try await renderer.export(paper,header:false,footer:false)
+        let document=try XCTUnwrap(PDFDocument(data:data))
+        XCTAssertTrue(document.string?.contains("独立打印内容")==true)
+        XCTAssertFalse(document.string?.contains("页眉专用测试标题")==true)
+    }
+}

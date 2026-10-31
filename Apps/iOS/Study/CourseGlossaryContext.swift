@@ -2,13 +2,14 @@ import SwiftUI
 import LearningCore
 
 struct CourseGlossaryContext {
+    let catalog:CourseGlossaryCatalog
+    let courseID:String
     let json: String
     let mode: String
-    let targets: Set<ReaderDocumentTarget>
     let open: (ReaderDocumentTarget) -> Void
-    init(data: Data, mode: String, open: @escaping (ReaderDocumentTarget) -> Void) throws {
-        let links = try JSONDecoder().decode(CourseGlossaryLinks.self, from: data)
-        targets = Set(links.terms.flatMap(\.notes))
+    init(data: Data, courseID:String, mode: String, open: @escaping (ReaderDocumentTarget) -> Void) throws {
+        catalog = try JSONDecoder().decode(CourseGlossaryCatalog.self, from: data)
+        self.courseID=courseID
         json = String(decoding: data, as: UTF8.self)
         self.mode = mode
         self.open = open
@@ -21,14 +22,4 @@ extension EnvironmentValues {
         get { self[CourseGlossaryKey.self] }
         set { self[CourseGlossaryKey.self] = newValue }
     }
-}
-
-private struct CourseGlossaryLinks: Decodable {
-    struct Term: Decodable { let notes: [ReaderDocumentTarget] }
-    let terms: [Term]
-}
-
-struct CourseGlossaryReview:Decodable {
-    struct Term:Decodable {let id:String;let term:String;let body:String}
-    let terms:[Term]
 }

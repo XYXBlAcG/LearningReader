@@ -18,13 +18,14 @@ export function renderTerm(term){
   section.append(heading,subject,body);
   return section;
 }
-export async function mount(article,{library,onNavigate,typeset=()=>Promise.resolve(),mode='once',onModeChange=null}){
+export async function mount(article,{library,onNavigate,typeset=()=>Promise.resolve(),mode='once',onModeChange=null,onPresent=null,onPresentLibrary=null}){
   let alive=true,cleanupPosition=null,popup=null,libraryDialog=null,pointer=null,returnFocus=null;
   const terms=new Map(library.terms.map(term=>[term.id,term]));
   const matcher=window.ReaderGlossaryCore.createMatcher(library);
   const marker=new Mark(article);
   const close=(restore=true)=>{cleanupPosition?.();cleanupPosition=null;if(popup){window.MathJax?.typesetClear?.([popup]);popup.remove();popup=null;}if(restore&&returnFocus?.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;};
   const openTerm=async(ids,reference=null,keyboard=false)=>{
+    if(onPresent){onPresent(ids);return;}
     close(false);if(!alive)return;returnFocus=keyboard?reference:null;
     const entries=ids.map(id=>terms.get(id)).filter(Boolean);if(!entries.length)return;
     const card=document.createElement('aside');card.className='glossary-card';card.setAttribute('role','dialog');card.setAttribute('aria-label','术语释义');card.dataset.copyIgnore='true';
@@ -36,7 +37,6 @@ export async function mount(article,{library,onNavigate,typeset=()=>Promise.reso
       for(const term of entries){const button=document.createElement('button');button.type='button';button.className='glossary-choice';button.textContent=term.term+' · '+term.subject;button.onclick=()=>openTerm([term.id],reference);card.append(button);}
     }else{
       const term=entries[0];card.append(renderTerm(term));
-      if(window.READER_NATIVE_PANELS){const review=document.createElement('button');review.type='button';review.textContent='加入知识点复习';review.onclick=()=>{close();window.webkit?.messageHandlers?.mathReader?.postMessage({type:'practiceTerm',id:term.id});};card.append(review);}
       if(term.notes.length){
         const title=document.createElement('h3');title.textContent='相关笔记';card.append(title);
         for(const note of term.notes){const button=document.createElement('button');button.type='button';button.className='glossary-choice';button.textContent=note.documentLabel+' · '+note.label;button.onclick=()=>{close();onNavigate?.(note);};card.append(button);}
@@ -75,6 +75,7 @@ export async function mount(article,{library,onNavigate,typeset=()=>Promise.reso
     },done:resolve});
   });
   return {openTerm,openLibrary(){
+    if(onPresentLibrary){onPresentLibrary();return;}
     close();libraryDialog?.remove();
     const dialog=document.createElement('dialog');dialog.className='glossary-library';dialog.setAttribute('aria-label','课程术语库');libraryDialog=dialog;
     const heading=document.createElement('h2');heading.textContent='课程术语库';

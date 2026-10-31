@@ -8,10 +8,12 @@ struct ReaderGraphView:View {
     let path:String
     let onOpen:(ReaderDocumentTarget)->Void
     @State private var issue:String?
+    @State private var global=false
     var body:some View {
-        VStack {
+        VStack(spacing:16) {
+            Picker("关联范围",selection:$global){Text("本页关联").tag(false);Text("全部知识").tag(true)}.pickerStyle(.segmented).padding(.horizontal).padding(.top,8)
             if let issue { Text(issue).foregroundStyle(.secondary).padding() }
-            GraphSurface(snapshot:snapshot,kind:kind,path:path,onOpen:onOpen,onIssue:{issue=$0})
+            GraphSurface(snapshot:snapshot,kind:kind,path:path,global:global,onOpen:onOpen,onIssue:{issue=$0})
         }
     }
 }
@@ -20,6 +22,7 @@ private struct GraphSurface:UIViewRepresentable {
     let snapshot:CourseSnapshot
     let kind:String
     let path:String
+    let global:Bool
     let onOpen:(ReaderDocumentTarget)->Void
     let onIssue:(String)->Void
     func makeCoordinator()->Coordinator { Coordinator(self) }
@@ -33,7 +36,7 @@ private struct GraphSurface:UIViewRepresentable {
         return web
     }
     func updateUIView(_ web:WKWebView,context:Context) {
-        let changed=context.coordinator.host.kind != kind || context.coordinator.host.path != path
+        let changed=context.coordinator.host.kind != kind || context.coordinator.host.path != path || context.coordinator.host.global != global
         context.coordinator.host=self
         if changed && context.coordinator.ready { context.coordinator.update(web) }
     }
@@ -50,7 +53,7 @@ private struct GraphSurface:UIViewRepresentable {
             do {
                 guard let data=host.snapshot.course.indices["graph.json"] else { throw ReaderError.invalidIndex }
                 let graph=try JSONSerialization.jsonObject(with:data)
-                web.callAsyncJavaScript("window.NativeGraph.update(graph,kind,path)",arguments:["graph":graph,"kind":host.kind,"path":host.path],in:nil,in:.page) { [weak self] result in
+                web.callAsyncJavaScript("window.NativeGraph.update(graph,kind,path,global)",arguments:["graph":graph,"kind":host.kind,"path":host.path,"global":host.global],in:nil,in:.page) { [weak self] result in
                     if case .failure(let error)=result { self?.host.onIssue(error.localizedDescription) }
                 }
             } catch { host.onIssue(error.localizedDescription) }

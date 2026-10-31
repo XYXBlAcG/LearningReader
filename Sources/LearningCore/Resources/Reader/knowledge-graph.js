@@ -189,6 +189,7 @@
     };
 
     return {
+      setGlobal(value){if(globalMode!==value){globalMode=value;render();}},
       setData(value) {
         graph = value;
         render();

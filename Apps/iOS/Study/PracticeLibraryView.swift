@@ -18,17 +18,7 @@ struct PracticeLibraryView:View {
                 ForEach(Array(visible.prefix(filter==0 ? practice.settings.dailyLimit : visible.count))){item in
                     NavigationLink{PracticeDetailView(id:item.id)}label:{VStack(alignment:.leading){Text(item.title);Text(item.card.due.formatted()).font(.caption).foregroundStyle(.secondary)}}
                 }
-                Section("复习设置") {
-                    Toggle("自测错题自动收录",isOn:Binding(get:{practice.settings.automaticMistakes},set:{value in var settings=practice.settings;settings.automaticMistakes=value;practice.configure(settings)}))
-                    Slider(value:Binding(get:{practice.settings.retention},set:{value in var settings=practice.settings;settings.retention=value;practice.configure(settings)}),in:0.7...0.99,step:0.01){Text("目标保留率")}
-                    Text("目标保留率：\(Int(practice.settings.retention*100))%")
-                    Stepper("每日建议 \(practice.settings.dailyLimit) 张",value:Binding(get:{practice.settings.dailyLimit},set:{value in var settings=practice.settings;settings.dailyLimit=value;practice.configure(settings)}),in:1...100)
-                    Button(practice.settings.reminders ? "关闭复习提醒":"开启复习提醒") {
-                        if practice.settings.reminders {var settings=practice.settings;settings.reminders=false;practice.configure(settings)} else {Task{await practice.authorize()}}
-                    }
-                    DatePicker("提醒时间",selection:Binding(get:{Calendar.current.date(bySettingHour:practice.settings.hour,minute:practice.settings.minute,second:0,of:Date()) ?? Date()},set:{value in var settings=practice.settings;settings.hour=Calendar.current.component(.hour,from:value);settings.minute=Calendar.current.component(.minute,from:value);practice.configure(settings)}),displayedComponents:.hourAndMinute)
-                    Toggle("通知预览题干",isOn:Binding(get:{practice.settings.preview},set:{value in var settings=practice.settings;settings.preview=value;practice.configure(settings)}))
-                }
+
             }.navigationTitle("学习记录")
             .toolbar {
                 ToolbarItem(placement:.cancellationAction){Button("完成"){dismiss()}}

@@ -67,3 +67,11 @@ test('writing area keeps a complete inline sentence with its formulas',async()=>
  const tail=wrapper.querySelector('.paper-tail');assert.match(tail.textContent,/对上一课数据取/);assert.match(tail.textContent,/计算平方损失/);assert.ok(tail.querySelector('[data-math-source]'));
  }finally{dom.window.close();}
 });
+test('iOS questions-only mode removes authoring preface and trailing knowledge links but keeps shared material',async()=>{
+ const dom=paper();try{
+  const source='# 练习\n\n> 阅读导言与出处\n\n## 共用材料\n\n设 $a>0$，以下各题均使用此条件。\n\n## 题目\n\n1. 求 $a^2$。\n\n## 知识链接\n\n[背景笔记](note.md)';
+  const clean=await dom.window.ReaderPaper.prepare(source,{questionsOnly:true},()=>null);
+  assert.doesNotMatch(clean.html,/阅读导言|背景笔记|知识链接/);assert.match(clean.html,/以下各题/);assert.match(clean.html,/a\^2/);
+  const original=await dom.window.ReaderPaper.prepare(source,{},()=>null);assert.match(original.html,/背景笔记|阅读导言/);
+ }finally{dom.window.close()}
+});

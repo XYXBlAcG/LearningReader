@@ -26,6 +26,7 @@ struct LearningView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var courses = false
     @State private var settings = false
+    @State private var glossaryPresentation:GlossaryPresentation?
     @State private var history = false
     @State private var localStudies=false
     @State private var practiceLibrary=false
@@ -114,12 +115,13 @@ struct LearningView: View {
                 ReaderToolsView(snapshot:model.snapshot,reader:reader,presented:$tools,onOpen:open)
             }
             .fullScreenCover(item:$reference){ReferenceStudyView(study:$0).environment(\.courseGlossary,courseGlossary)}
+            .sheet(item:$glossaryPresentation){presentation in NativeGlossaryView(presentation:presentation,onOpen:open)}
             .sheet(isPresented:$exportPaper){ExerciseExportView(reader:reader)}
             .sheet(item:$annotationRecord){record in NavigationStack{SavedStudyView(initial:record,onSource:{source in annotationRecord=nil;ai.study.onOpenSource?(source)})}}
             .sheet(isPresented:$practiceLibrary){PracticeLibraryView()}
             .sheet(isPresented:$localStudies){StudyLibraryView(courseID:model.selected?.id)}
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
-            .sheet(isPresented: $settings) { AppSettingsView(model: model) }
+            .sheet(isPresented: $settings) { AppSettingsView(model: model,reader:reader) }
             .sheet(isPresented: $history) { ReadingHistoryView(reader: reader) }
             .alert("知序", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) {
                 Button("知道了") { model.issue = nil }
@@ -147,9 +149,11 @@ struct LearningView: View {
                 }
                 ai.practice.onOpen={practiceLibrary=true}
                 reader.onCheckpointMistake={ai.practice.captureCheckpoint($0,courseID:$1)}
-                reader.onKnowledge={id,title,body in
-                    ai.practice.captureKnowledge(id:id,title:title,body:body,courseID:model.selected?.id ?? "")
-                    practiceLibrary=true
+                reader.onGlossary={ids in
+                    do {
+                        guard let data=model.snapshot?.course.indices["glossary.json"] else {throw ReaderError.invalidIndex}
+                        glossaryPresentation=GlossaryPresentation(catalog:try JSONDecoder().decode(CourseGlossaryCatalog.self,from:data),courseID:model.selected?.id ?? "",selected:ids)
+                    }catch{model.issue=error.localizedDescription}
                 }
                 reader.annotationData={ai.study.annotations(courseID:model.selected?.id ?? "")}
                 reader.onAnnotation={ids in
@@ -172,7 +176,7 @@ struct LearningView: View {
     }
     private var courseGlossary: CourseGlossaryContext? {
         guard let data=model.snapshot?.course.indices["glossary.json"] else { return nil }
-        return try? CourseGlossaryContext(data:data,mode:reader.state?.glossaryMode ?? "once") { target in
+        return try? CourseGlossaryContext(data:data,courseID:model.selected?.id ?? "",mode:reader.state?.glossaryMode ?? "once") { target in
             reference=nil
             open(target)
         }
