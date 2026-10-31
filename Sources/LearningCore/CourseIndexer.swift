@@ -27,7 +27,7 @@ public enum CourseIndexer {
         let manifestURL = root.appendingPathComponent("course.json")
         var manifest: CourseManifest
         if configuration.markdown {
-            let paths = try files(root: root, excluding: configuration.excluding).filter { $0.lowercased().hasSuffix(".md") }
+            let paths = try files(root: root, excluding: configuration.excluding).filter { $0.lowercased().hasSuffix(".md") && !CourseGlossary.contains($0) }
             guard let first = paths.first else { throw ReaderError.course("所选目录没有可阅读的 Markdown 文件。") }
             manifest = .init(schemaVersion: 1, title: root.lastPathComponent, entry: paths.contains("README.md") ? "README.md" : first, sections: [.init(kind: .note, path: ".", title: "课程")], assets: ["."], exclude: configuration.excluding)
         } else {
@@ -55,7 +55,7 @@ public enum CourseIndexer {
         for section in manifest.sections {
             guard section.path == "." || CoursePath.valid(section.path), !section.title.isEmpty else { throw ReaderError.course("课程分组路径或标题无效。") }
             let prefix = section.path == "." ? "" : section.path + "/"
-            let paths = available.filter { $0.hasPrefix(prefix) && $0.lowercased().hasSuffix(".md") }
+            let paths = available.filter { $0.hasPrefix(prefix) && $0.lowercased().hasSuffix(".md") && !CourseGlossary.contains($0) }
             guard !paths.isEmpty else { throw ReaderError.course("分组没有 Markdown 文件：" + section.path) }
             for path in paths {
                 try Task.checkCancellation()
@@ -94,6 +94,7 @@ public enum CourseIndexer {
             guard let value = object[key] else { throw ReaderError.invalidIndex }
             indices[name] = try JSONSerialization.data(withJSONObject: value)
         }
+        indices["glossary.json"] = try CourseGlossary.build(root: root, available: available, documents: documents)
         let unresolved = ((object["graph"] as? [String: Any])?["unresolved"] as? [[String: Any]] ?? []).map { "\($0["source"] ?? "") → \($0["target"] ?? "")" }
         let redirects = try manifest.redirects.map { try Data(contentsOf: CoursePath.file($0, in: root)) } ?? Data("{\"note\":{},\"exercise\":{}}".utf8)
         _ = try JSONDecoder().decode([String: [String: String]].self, from: redirects)
@@ -111,7 +112,7 @@ public enum CourseIndexer {
             let path = fileComponents.dropFirst(rootComponents.count).joined(separator: "/")
             let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isDirectoryKey])
             if values.isSymbolicLink == true { throw ReaderError.course("课程不支持符号链接：" + path) }
-            if ignoredDirectories.contains(url.lastPathComponent) || excluding.contains(where: { path == $0 || path.hasPrefix($0 + "/") }) { enumerator.skipDescendants(); continue }
+            if ignoredDirectories.contains(url.lastPathComponent) || excluding.contains(where: { path == $0 || path.hasPrefix($0 + "/") }) { if values.isDirectory == true { enumerator.skipDescendants() }; continue }
             if values.isRegularFile == true { result.append(path); total += 1 }
             guard total <= 50_000 else { throw ReaderError.course("课程文件数量超过 50000。") }
         }

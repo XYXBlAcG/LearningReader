@@ -31,9 +31,10 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           node Tools/build_reader_vendor.mjs --check
           node Tools/build_checkpoints.mjs --check
+          node Tools/build_glossary.mjs --check
           node --test Tests/ReaderTests/*.test.cjs
       - name: Core checks
-        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests|AITests|AITransportTests|AISelectionTests|CourseNavigationTests|StudyRecordTests|StudyLibraryTests|CheckpointTests|CheckpointStoreTests'
+        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests|AITests|AITransportTests|AISelectionTests|CourseNavigationTests|StudyRecordTests|StudyLibraryTests|CheckpointTests|CheckpointStoreTests|GlossaryTests'
       - name: Course templates
         run: |
           swift run course validate Templates/minimal-course

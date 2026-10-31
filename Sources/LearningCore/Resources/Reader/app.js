@@ -78,6 +78,32 @@ function updateNavigation() {
 
 let mathTypesetQueue = Promise.resolve();
 let checkpointView=null;
+let glossaryView=null,glossaryGeneration=0;
+const glossaryReady=fetch(DATA_SOURCE.glossaryUrl()).then(response=>{if(!response.ok)throw new Error('HTTP '+response.status);return response.json();}).then(data=>({data}),error=>({error}));
+let glossaryMode=readerStorage.getItem('reader_glossary_mode')||'once';
+$('glossaryMode').value=glossaryMode;
+function changeGlossaryMode(value){
+  glossaryMode=value;readerStorage.setItem('reader_glossary_mode',value);$('glossaryMode').value=value;
+  if($('article').firstElementChild)attachGlossary($('article').firstElementChild);
+  hostBridge?.publish();
+}
+$('glossaryMode').onchange=()=>changeGlossaryMode($('glossaryMode').value);
+$('glossaryLibrary').onclick=()=>glossaryView?.openLibrary();
+async function attachGlossary(article){
+  const ticket=++glossaryGeneration;
+  article.querySelector('.glossary-error')?.remove();
+  glossaryView?.dispose();glossaryView=null;
+  try{
+    const result=await glossaryReady;if(result.error)throw result.error;
+    if(ticket!==glossaryGeneration||!article.isConnected)return;
+    const view=await ReaderGlossaryUI.mount(article,{library:result.data,mode:glossaryMode,typeset,onModeChange:changeGlossaryMode,onNavigate:note=>selectFile(note.kind,note.path,note.anchor)});
+    if(ticket!==glossaryGeneration||!article.isConnected){view.dispose();return;}
+    glossaryView=view;
+  }catch(error){
+    if(ticket!==glossaryGeneration||!article.isConnected)return;
+    const message=document.createElement('p');message.className='glossary-error err';message.textContent='术语库读取失败：'+error.message;article.prepend(message);
+  }
+}
 
 function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -86,10 +112,10 @@ function escHtml(s) {
 
 ReaderSelectionCopy.bind($('article'));
 
-function typeset() {
+function typeset(nodes = [$("article"), $("outline")]) {
   if (window.MathJax && MathJax.typesetPromise) {
     mathTypesetQueue = mathTypesetQueue
-      .then(() => MathJax.typesetPromise([$("article"), $("outline")]))
+      .then(() => MathJax.typesetPromise(nodes))
       .catch((e) => console.warn("MathJax:", e));
     return mathTypesetQueue;
   }
@@ -101,6 +127,7 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
   const isExercise = active && active.kind === "exercise";
   const html = ReaderMarkdown.render(linkedSource, source => isExercise ? ReaderExerciseCopy.formatSubquestions(source) : source);
   const proseClass = isExercise ? "prose exercise-prose" : "prose";
+  glossaryView?.dispose();glossaryView=null;
   ReaderProblemPreviews.dispose();
   checkpointView?.dispose();
   $("article").innerHTML = '<div class="' + proseClass + '">' + html + "</div>";
@@ -134,6 +161,8 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
   ReaderProblemPreviews.enhance($("article"));
   setupHeadings($("article"));
   await typeset();
+  await attachGlossary(article);
+  if(owner!==active||!article.isConnected)return;
   await new Promise((resolve) => requestAnimationFrame(() => {
     const target = anchor ? document.getElementById(anchor) : null;
     if (snapshot) {
@@ -1034,6 +1063,7 @@ hostBridge = ReaderHostBridge.install({
     pinned: !!active && pinnedFiles.includes(PINNED_FILES.documentKey(active.kind, active.path)),
     counterpart: active && findCounterpart(active.kind, active.path) ? (active.kind === 'note' ? '对应题目' : '对应笔记') : '',
     sidebar: sidebarOpen, outline: outlineOpen, panel: rightPanel, immersive, zoom,
+    glossaryMode,
     previews: $('previewToggle').getAttribute('aria-pressed') === 'true',
     history: navigation.records.map(record => {
       const path = documentPaths[record.kind]?.[record.path] || record.path;
@@ -1057,6 +1087,7 @@ hostBridge = ReaderHostBridge.install({
       case 'outline': setOutline(!outlineOpen); break;
       case 'graph': setOutline(true); setRightPanel(rightPanel === 'graph' ? 'outline' : 'graph'); break;
       case 'immersive': setImmersive(!immersive); break;
+      case 'glossary': glossaryView?.openLibrary(); break;
       case 'previews': togglePreview(); break;
       case 'zoomIn': setZoom(zoom + .05); break;
       case 'zoomOut': setZoom(zoom - .05); break;

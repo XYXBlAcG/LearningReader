@@ -13,6 +13,8 @@ struct StudyLibraryView:View {
     @State private var query=""
     @State private var allCourses=true
     @State private var selection=Set<UUID>()
+    @State private var editMode:EditMode = .inactive
+    @State private var opened:StudyRecord?
     @State private var renaming:StudySummary?
     @State private var title=""
     @State private var importing=false
@@ -28,15 +30,23 @@ struct StudyLibraryView:View {
     }
     var body:some View {
         NavigationStack {
-            List(selection:$selection) {
+            List(selection:editMode.isEditing ? $selection : nil) {
                 if courseID != nil && source == nil { Toggle("显示全部课程",isOn:$allCourses) }
                 if library.canUndo {Button("撤销删除",systemImage:"arrow.uturn.backward"){library.undo()} }
                 ForEach(filtered) { record in
-                    NavigationLink(value:record.id) {
-                        VStack(alignment:.leading,spacing:5) {
-                            Text(record.title).lineLimit(2)
-                            Text(record.source.map{$0.kind=="web" ? URL(string:$0.path)?.host ?? "网页" : ($0.path as NSString).lastPathComponent} ?? "本地提问").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                            Text(record.updatedAt.formatted(date:.abbreviated,time:.shortened)).font(.caption).foregroundStyle(.secondary)
+                    Group {
+                        if editMode.isEditing {StudySummaryRow(record:record)}
+                        else {
+                            Button {
+                                do {opened=try library.openRecord(record.id)}
+                                catch {library.issue="无法打开讲解："+error.localizedDescription}
+                            } label: {
+                                HStack {
+                                    StudySummaryRow(record:record)
+                                    Spacer()
+                                    Image(systemName:"chevron.right").font(.caption).foregroundStyle(.tertiary)
+                                }.foregroundStyle(.primary).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
                         }
                     }.tag(record.id)
                     .swipeActions(edge:.leading){Button("删除",role:.destructive){library.delete([record.id])}}
@@ -49,8 +59,8 @@ struct StudyLibraryView:View {
             .overlay{if filtered.isEmpty && library.issue==nil {ContentUnavailableView("暂无本地讲解",systemImage:"tray",description:Text("讲一讲生成的回答会自动保存，也可以手动保存。"))}}
             .searchable(text:$query,prompt:"搜索标题、题目和讲解")
             .navigationTitle("本地讲解")
-            .navigationDestination(for:UUID.self){id in
-                if let record=library.record(id) {SavedStudyView(initial:record,onSource:{source in dismiss();library.onOpenSource?(source)})}
+            .navigationDestination(isPresented:Binding(get:{opened != nil},set:{if !$0 {opened=nil}})) {
+                if let record=opened {SavedStudyView(initial:record,onSource:{source in dismiss();library.onOpenSource?(source)})}
             }
             .toolbar {
                 ToolbarItem(placement:.cancellationAction){Button("完成"){dismiss()}}
@@ -78,6 +88,19 @@ struct StudyLibraryView:View {
                 } catch {library.issue=error.localizedDescription}
             }
             .alert("本地讲解",isPresented:Binding(get:{library.issue != nil},set:{if !$0 {library.issue=nil}})){Button("知道了"){library.issue=nil}}message:{Text(library.issue ?? "")}
+        }
+        .environment(\.editMode,$editMode)
+        .onChange(of:editMode){if !$0.isEditing {selection=[]}}
+    }
+}
+
+private struct StudySummaryRow:View {
+    let record:StudySummary
+    var body:some View {
+        VStack(alignment:.leading,spacing:5) {
+            Text(record.title).lineLimit(2)
+            Text(record.source.map{$0.kind=="web" ? URL(string:$0.path)?.host ?? "网页" : ($0.path as NSString).lastPathComponent} ?? "本地提问").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            Text(record.updatedAt.formatted(date:.abbreviated,time:.shortened)).font(.caption).foregroundStyle(.secondary)
         }
     }
 }

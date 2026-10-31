@@ -13,9 +13,13 @@ final class StudyWorkspace:ObservableObject {
     private var store:StudyStore?
     private var pending:[UUID:StudyRecord]=[:]
     private var tasks:[UUID:Task<Void,Never>]=[:]
-    init() {
-        do { store=try StudyStore();try reload() }
+    init(store:StudyStore?=nil) {
+        do { self.store=try store ?? StudyStore();try reload() }
         catch { issue="无法打开本地讲解库："+error.localizedDescription }
+    }
+    func openRecord(_ id:UUID) throws -> StudyRecord {
+        guard let record=try requiredStore().record(id) else { throw CocoaError(.fileNoSuchFile) }
+        return record
     }
     func record(_ id:UUID)->StudyRecord? {
         do {return try requiredStore().record(id)}

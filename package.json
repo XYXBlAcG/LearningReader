@@ -6,13 +6,18 @@
     "build:reader-vendor": "node Tools/build_reader_vendor.mjs",
     "check:reader-vendor": "node Tools/build_reader_vendor.mjs --check",
     "build:checkpoints": "node Tools/build_checkpoints.mjs",
-    "check:checkpoints": "node Tools/build_checkpoints.mjs --check"
+    "check:checkpoints": "node Tools/build_checkpoints.mjs --check",
+    "build:glossary": "node Tools/build_glossary.mjs",
+    "check:glossary": "node Tools/build_glossary.mjs --check"
   },
   "devDependencies": {
+    "@floating-ui/dom": "1.8.0",
+    "ahocorasick": "1.0.2",
     "ajv": "8.17.1",
     "esbuild": "0.25.12",
     "fake-indexeddb": "6.2.4",
     "jsdom": "26.1.0",
+    "mark.js": "8.11.1",
     "marked": "18.0.9",
     "marked-cjk-friendly": "0.1.3"
   }

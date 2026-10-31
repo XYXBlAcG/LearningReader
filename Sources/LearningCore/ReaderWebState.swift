@@ -14,6 +14,7 @@ public struct ReaderWebState: Decodable {
         public let title:String
         public let level:Int
     }
+    public let glossaryMode: String?
     public let documentKind:String?
     public let pinnedKeys:[String]?
     public let canUndoHistory:Bool?

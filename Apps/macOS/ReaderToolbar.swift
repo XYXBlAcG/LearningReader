@@ -118,6 +118,7 @@ final class ReaderToolbar: NSObject, NSToolbarDelegate {
         let choices: [(String, String, Bool)] = [
             ("本页目录", "outline", state?.outline == true),
             ("知识关联", "graph", state?.panel == "graph" && state?.outline == true),
+            ("课程术语库", "glossary", false),
             ("三维预览", "previews", state?.previews == true),
             ("沉浸阅读", "immersive", state?.immersive == true),
             ("放大正文（\(Int((state?.zoom ?? 1) * 100))%）", "zoomIn", false),

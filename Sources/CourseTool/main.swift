@@ -26,7 +26,7 @@ struct CourseTool {
             let course = try CourseIndexer.build(root: url, configuration: configuration)
             if command == "index" {
                 var result: [String: Any] = ["manifest": try JSONSerialization.jsonObject(with: JSONEncoder().encode(course.manifest)), "redirects": try JSONSerialization.jsonObject(with: course.redirects), "media": course.media.sorted()]
-                for (name, key) in [("index.json", "files"), ("graph.json", "graph"), ("search-index.json", "search")] {
+                for (name, key) in [("index.json", "files"), ("graph.json", "graph"), ("search-index.json", "search"), ("glossary.json", "glossary")] {
                     result[key] = try JSONSerialization.jsonObject(with: course.indices[name]!)
                 }
                 print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))

@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = dict((key.strip(), value.strip()) for line in (ROOT / 'Config/Version.xcconfig').read_text().splitlines() if line.strip() for key, value in [line.split('=', 1)])
 
 
 def run(*command):
@@ -51,7 +52,7 @@ def macos():
         shutil.copytree(bundle, resources / bundle.name)
     shutil.copy2(ROOT / 'build/AppIcon.icns', resources / 'AppIcon.icns')
     with (staging / 'Contents/Info.plist').open('wb') as handle:
-        plistlib.dump({'CFBundleName': '知序', 'CFBundleDisplayName': '知序', 'CFBundleIdentifier': 'chatgpt.nice114514.mathreader', 'CFBundleExecutable': 'LearningReader', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': '3', 'CFBundleShortVersionString': '2.0.1', 'CFBundleIconFile': 'AppIcon', 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True, 'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True}}, handle)
+        plistlib.dump({'CFBundleName': '知序', 'CFBundleDisplayName': '知序', 'CFBundleIdentifier': 'chatgpt.nice114514.mathreader', 'CFBundleExecutable': 'LearningReader', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': VERSION['CURRENT_PROJECT_VERSION'], 'CFBundleShortVersionString': VERSION['MARKETING_VERSION'], 'CFBundleIconFile': 'AppIcon', 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True, 'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True}}, handle)
     run('codesign', '--force', '--deep', '--sign', '-', str(staging))
     run('codesign', '--verify', '--deep', '--strict', str(staging))
     output = ROOT / 'Output'

@@ -208,7 +208,7 @@ final class DesktopApplication: NSObject, NSApplicationDelegate, NSWindowDelegat
         for (title, selector, key) in [("撤销", "undo:", "z"), ("剪切", "cut:", "x"), ("复制", "copy:", "c"), ("粘贴", "paste:", "v"), ("全选", "selectAll:", "a")] { edit.addItem(withTitle: title, action: Selector(selector), keyEquivalent: key) }
         let editItem = NSMenuItem(); editItem.submenu = edit; main.addItem(editItem)
         let reading = NSMenu(title: "阅读")
-        for (title, command, key) in [("搜索课程", "search", "f"), ("返回", "back", "["), ("前进", "forward", "]"), ("历史记录", "history", "y"), ("课程目录", "sidebar", ""), ("本页目录", "outline", ""), ("知识关联", "graph", ""), ("放大正文", "zoomIn", "+"), ("缩小正文", "zoomOut", "-"), ("显示或隐藏日志", "logs", "")] {
+        for (title, command, key) in [("搜索课程", "search", "f"), ("返回", "back", "["), ("前进", "forward", "]"), ("历史记录", "history", "y"), ("课程目录", "sidebar", ""), ("本页目录", "outline", ""), ("知识关联", "graph", ""), ("课程术语库", "glossary", ""), ("放大正文", "zoomIn", "+"), ("缩小正文", "zoomOut", "-"), ("显示或隐藏日志", "logs", "")] {
             let item = reading.addItem(withTitle: title, action: #selector(menuAction(_:)), keyEquivalent: key)
             item.target = self; item.representedObject = command
         }

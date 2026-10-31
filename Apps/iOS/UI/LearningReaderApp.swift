@@ -74,6 +74,7 @@ struct LearningView: View {
                         Button("搜索", systemImage: "magnifyingglass") { compactColumn = .sidebar;columns = .all }
                         Button("前进", systemImage: "chevron.right") { reader.send("forward") }.disabled(reader.state?.canForward != true)
                         Button("历史记录", systemImage: "clock") { history = true }
+                        Button("课程术语库",systemImage:"text.book.closed") {reader.send("glossary")}.disabled(reader.state?.hasDocument != true)
                         Button("本地讲解",systemImage:"tray.full") {localStudies=true}
                         Section("讲一讲") {
                             Button("拍照提问", systemImage: "camera") { interaction.media = .camera }
@@ -107,7 +108,7 @@ struct LearningView: View {
             .inspector(isPresented:$tools) {
                 ReaderToolsView(snapshot:model.snapshot,reader:reader,presented:$tools,onOpen:open)
             }
-            .fullScreenCover(item:$reference){ReferenceStudyView(study:$0)}
+            .fullScreenCover(item:$reference){ReferenceStudyView(study:$0).environment(\.courseGlossary,courseGlossary)}
             .sheet(isPresented:$exportPaper){ExerciseExportView(reader:reader)}
             .sheet(isPresented:$localStudies){StudyLibraryView(courseID:model.selected?.id)}
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
@@ -147,6 +148,13 @@ struct LearningView: View {
         }
         .tint(Color(red: 0.06, green: 0.59, blue: 0.46))
         .modifier(AIHost(interaction: interaction))
+    }
+    private var courseGlossary: CourseGlossaryContext? {
+        guard let data=model.snapshot?.course.indices["glossary.json"] else { return nil }
+        return try? CourseGlossaryContext(data:data,mode:reader.state?.glossaryMode ?? "once") { target in
+            reference=nil
+            open(target)
+        }
     }
     private func open(_ target:ReaderDocumentTarget) {
         reader.open(target)

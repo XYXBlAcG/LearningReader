@@ -23,6 +23,7 @@
       searchUrl() {
         return mode === "static" ? "/content/search-index.json" : "/api/reader/search-index";
       },
+      glossaryUrl() { return mode === "static" ? "/content/glossary.json" : "/api/reader/glossary"; },
       fileUrl(kind, path) {
         if (mode === "static") return "/content/" + kind + "/" + encodePath(path);
         return "/api/reader/file?kind=" + kind + "&path=" + encodeURIComponent(path);

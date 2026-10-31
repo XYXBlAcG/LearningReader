@@ -15,7 +15,7 @@ public struct CourseSnapshot: Identifiable, Sendable {
         if relative == "reader/config.js" { return try CoursePath.file("config.js", in: derived) }
         if relative == "reader/document-paths.json" { return try CoursePath.file("document-paths.json", in: derived) }
         if relative.hasPrefix("reader/") { return try CoursePath.file(String(relative.dropFirst(7)), in: ReaderAssets.reader) }
-        if ["content/index.json", "content/graph.json", "content/search-index.json"].contains(relative) { return try CoursePath.file(String(relative.dropFirst(8)), in: derived) }
+        if ["content/index.json", "content/graph.json", "content/search-index.json", "content/glossary.json"].contains(relative) { return try CoursePath.file(String(relative.dropFirst(8)), in: derived) }
         for kind in [DocumentKind.note, .exercise] {
             let prefix = "content/" + kind.rawValue + "/"
             if relative.hasPrefix(prefix) {
@@ -45,7 +45,9 @@ public final class SnapshotStore: @unchecked Sendable {
         guard Self.validRevision(record.revision) else { throw ReaderError.invalidSnapshot }
         let root = directory.appendingPathComponent("versions/" + record.revision)
         let course = try CourseIndexer.build(root: root.appendingPathComponent("Repository"), configuration: record.configuration)
-        return CourseSnapshot(revision: record.revision, root: root, course: course, derived: root.appendingPathComponent("Derived"))
+        let derived = root.appendingPathComponent("Derived")
+        try Self.writeDerived(course: course, to: derived)
+        return CourseSnapshot(revision: record.revision, root: root, course: course, derived: derived)
     }
 
     public func install(archive: URL, revision: String, configuration: ImportConfiguration) throws -> CourseSnapshot {

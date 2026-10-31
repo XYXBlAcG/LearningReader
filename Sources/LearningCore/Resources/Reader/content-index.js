@@ -131,5 +131,5 @@
     return {files,graph:{nodes,edges,backlinks:orderedBacklinks,unresolved},search:{version:1,sections:documents.flatMap(sections)},checkpoints:quiz};
   }
 
-  return {build,buildJSON:source=>JSON.stringify(build(JSON.parse(source)))};
+  return {build,sections,headingId,title,buildJSON:source=>JSON.stringify(build(JSON.parse(source)))};
 });
