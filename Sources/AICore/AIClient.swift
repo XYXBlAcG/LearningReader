@@ -12,7 +12,7 @@ public final class AIClient: Sendable {
     }
     deinit { if ownsSession { session.invalidateAndCancel() } }
 
-    public func generate(_ request: AIRequest, onText: @Sendable (String) async -> Void) async throws {
+    public func generate(_ request: AIRequest, onThinking: @Sendable () async -> Void = {}, onText: @Sendable (String) async -> Void) async throws {
         let (bytes, response) = try await session.bytes(for: request.urlRequest())
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidStream }
         guard (200..<300).contains(http.statusCode) else { throw AIError.service(http.statusCode) }
@@ -33,6 +33,7 @@ public final class AIClient: Sendable {
                     case .text(let text):
                         output += text
                         guard output.count <= 160000 else { throw AIError.outputLimit }
+                    case .thinking: await onThinking()
                     case .completed: completed = true
                     }
                 }
@@ -46,7 +47,8 @@ public final class AIClient: Sendable {
         if !completed {
             for data in try parser.append(line) + parser.finish() {
                 for event in try AIStream.decode(data, api: request.profile.api) {
-                    switch event { case .text(let text): output += text; case .completed: completed = true }
+                    switch event { case .text(let text): output += text; case .thinking: await onThinking()
+                    case .completed: completed = true }
                 }
             }
         }

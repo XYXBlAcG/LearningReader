@@ -1,27 +1,14 @@
 import Mark from 'mark.js/dist/mark.js';
 import {computePosition,autoUpdate,offset,flip,shift,size} from '@floating-ui/dom';
 
-const excluded='a,pre,code,script,style,button,input,textarea,select,h1,h2,h3,h4,h5,h6,[data-math-source],mjx-container,[data-glossary-ignore]';
-const blocks=new Set(['P','DIV','LI','TD','TH','BLOCKQUOTE','SECTION']);
+const excluded=window.ReaderTextMap.excluded;
 export function ranges(article,matcher,once=false){
-  const result=[],seen=new Set();let text='',start=0,total=0;
-  const flush=()=>{
-    for(const match of matcher.find(text)){
-      if(once&&match.ids.every(id=>seen.has(id)))continue;
-      match.ids.forEach(id=>seen.add(id));
-      result.push({...match,start:start+match.start});
-    }
-    text='';start=total;
-  };
-  const visit=node=>{
-    if(node.nodeType===3){if(!text)start=total;text+=node.data;total+=node.data.length;return;}
-    if(node.nodeType!==1)return;
-    if(node.matches(excluded)){flush();return;}
-    const block=blocks.has(node.tagName);if(block)flush();
-    for(const child of node.childNodes)visit(child);
-    if(block)flush();
-  };
-  visit(article);flush();return result;
+ const result=[],seen=new Set();
+ for(const run of window.ReaderTextMap.collect(article))for(const match of matcher.find(run.text)){
+  if(once&&match.ids.every(id=>seen.has(id)))continue;
+  match.ids.forEach(id=>seen.add(id));result.push({...match,start:run.start+match.start});
+ }
+ return result;
 }
 export function renderTerm(term){
   const section=document.createElement('section');section.className='glossary-definition prose';
@@ -49,6 +36,7 @@ export async function mount(article,{library,onNavigate,typeset=()=>Promise.reso
       for(const term of entries){const button=document.createElement('button');button.type='button';button.className='glossary-choice';button.textContent=term.term+' · '+term.subject;button.onclick=()=>openTerm([term.id],reference);card.append(button);}
     }else{
       const term=entries[0];card.append(renderTerm(term));
+      if(window.READER_NATIVE_PANELS){const review=document.createElement('button');review.type='button';review.textContent='加入知识点复习';review.onclick=()=>{close();window.webkit?.messageHandlers?.mathReader?.postMessage({type:'practiceTerm',id:term.id});};card.append(review);}
       if(term.notes.length){
         const title=document.createElement('h3');title.textContent='相关笔记';card.append(title);
         for(const note of term.notes){const button=document.createElement('button');button.type='button';button.className='glossary-choice';button.textContent=note.documentLabel+' · '+note.label;button.onclick=()=>{close();onNavigate?.(note);};card.append(button);}
@@ -81,7 +69,7 @@ export async function mount(article,{library,onNavigate,typeset=()=>Promise.reso
   document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
   if(mode!=='off')await new Promise(resolve=>{
     const first=new Set();
-    marker.markRanges(ranges(article,matcher,mode==='once'),{element:'span',className:'glossary-term',exclude:excluded.split(','),each:(node,range)=>{
+    marker.markRanges(ranges(article,matcher,mode==='once'),{element:'span',className:'glossary-term',exclude:excluded.split(',').flatMap(selector=>[selector,selector+' *']),each:(node,range)=>{
       node.dataset.termIds=JSON.stringify(range.ids);node.setAttribute('role','button');node.setAttribute('aria-haspopup','dialog');
       node.tabIndex=first.has(range.start)?-1:0;first.add(range.start);
     },done:resolve});

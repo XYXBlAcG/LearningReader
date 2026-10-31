@@ -8,3 +8,5 @@
 - [随堂自测与课程题块](随堂自测.md)
 - [课程协议](../Schemas/course.schema.json)
 - [架构入口](../Sources/LearningCore)
+
+- [学习记录、错题与复习](学习记录.md)

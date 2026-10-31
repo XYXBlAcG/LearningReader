@@ -115,6 +115,8 @@ struct SavedStudyView:View {
     @State private var versionID:UUID?
     @State private var website:StudyWebsite?
     @State private var services=false
+    @State private var editingAnswer=false
+    @State private var editedAnswer=""
     @State private var exporting=false
     @State private var document:StudyDataDocument?
     @State private var contentType:UTType = .plainText
@@ -147,6 +149,8 @@ struct SavedStudyView:View {
                     catch {library.issue="原本地网页可能已移除，请从课程仓库重新打开或导入；保存的内容仍可阅读。"}
                 }
             }
+            Button(library.hiddenAnnotations.contains(record.id.uuidString) ? "恢复原文高亮":"取消原文高亮"){library.toggleAnnotation(record.id)}
+            Button("编辑讲解",systemImage:"pencil"){editedAnswer=version?.answer ?? "";editingAnswer=true}
             Button("复制讲解",systemImage:"doc.on.doc"){UIPasteboard.general.string=version?.transcript}
             Button("导出 Markdown",systemImage:"square.and.arrow.up"){
                 var markdown="# "+record.title+"\n\n## 题目\n\n"+record.question+"\n\n## 讲解\n\n"+(version?.transcript ?? "")
@@ -160,6 +164,21 @@ struct SavedStudyView:View {
             Button("删除当前回答版本",role:.destructive){if let version {library.deleteVersion(record.id,version:version.id);versionID=nil;if !library.records.contains(where:{$0.id==record.id}) {dismiss()}}}
             Button("删除此条讲解",role:.destructive){library.delete([record.id]);dismiss()}
         }label:{Image(systemName:"ellipsis.circle")}}}
+        .sheet(isPresented:$editingAnswer){
+            NavigationStack {
+                TextEditor(text:$editedAnswer).padding().navigationTitle("编辑讲解")
+                    .toolbar {
+                        ToolbarItem(placement:.cancellationAction){Button("取消"){editingAnswer=false}}
+                        ToolbarItem(placement:.confirmationAction){Button("保存新版本"){
+                            var updated=record
+                            var answer=StudyVersion(input:version?.input ?? [],model:"个人编辑",service:"本地")
+                            answer.answer=editedAnswer;answer.status = .complete
+                            updated.versions.append(answer);updated.updatedAt=Date();library.save(updated)
+                            if library.issue==nil {versionID=answer.id;editingAnswer=false}
+                        }.disabled(editedAnswer.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)}
+                    }
+            }
+        }
         .confirmationDialog("选择本次追问使用的服务（沿用已保存上下文）",isPresented:$services,titleVisibility:.visible){
             ForEach(ai.settings.profiles.filter{record.initial.image==nil || $0.supportsImages}){profile in
                 Button(profile.name.isEmpty ? profile.model:profile.name){

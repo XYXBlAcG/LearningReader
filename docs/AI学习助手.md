@@ -60,3 +60,5 @@ DeepSeek 基础地址可直接填写 `https://api.deepseek.com`，请求地址�
 - [离线公式渲染测试](../Tests/ReaderTests/ai-markdown.test.cjs)
 - [全文与页面身份测试](../Tests/ReaderTests/reader-explanation.test.cjs)
 - [人工验收](开发与验收.md#人工验收)
+
+思考状态依据接口流事件显示；不提供推理事件的服务显示等待回答。已保存讲解的原文高亮、个人编辑版本及学习摘要见[学习记录](学习记录.md)。

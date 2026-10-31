@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 final class StudyWorkspace:ObservableObject {
     @Published private(set) var records:[StudySummary]=[]
     @Published var issue:String?
+    @Published private(set) var hiddenAnnotations=Set(UserDefaults.standard.stringArray(forKey:"hiddenStudyAnnotations") ?? [])
     @Published private(set) var canUndo=false
     @Published private(set) var saving=Set<UUID>()
     var onOpenSource:((StudySource)->Void)?
@@ -16,6 +17,18 @@ final class StudyWorkspace:ObservableObject {
     init(store:StudyStore?=nil) {
         do { self.store=try store ?? StudyStore();try reload() }
         catch { issue="无法打开本地讲解库："+error.localizedDescription }
+    }
+    func toggleAnnotation(_ id:UUID) {
+        if hiddenAnnotations.contains(id.uuidString){hiddenAnnotations.remove(id.uuidString)}else{hiddenAnnotations.insert(id.uuidString)}
+        UserDefaults.standard.set(Array(hiddenAnnotations),forKey:"hiddenStudyAnnotations")
+    }
+    func annotations(courseID:String)->[[String:String]] {
+        records.filter{!hiddenAnnotations.contains($0.id.uuidString) && $0.source?.courseID==courseID}.compactMap{summary in
+            guard let record=record(summary.id),let source=record.source else{return nil}
+            let text=record.initial.text
+            guard let start=text.firstIndex(of:"{"),let data=String(text[start...]).data(using:.utf8),let quoted=try? JSONSerialization.jsonObject(with:data) as? [String:String],let quote=quoted["讲解重点"],!quote.isEmpty else{return nil}
+            return ["id":record.id.uuidString,"path":source.path,"kind":source.kind,"quote":quote]
+        }
     }
     func openRecord(_ id:UUID) throws -> StudyRecord {
         guard let record=try requiredStore().record(id) else { throw CocoaError(.fileNoSuchFile) }

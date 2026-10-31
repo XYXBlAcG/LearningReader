@@ -1012,3 +1012,10 @@ body.immersive .prose { max-width: 50rem; }
     box-shadow: none;
   }
 }
+
+.question-actions { float:right; display:inline-flex; gap:8px; align-items:center; margin-left:12px; }
+.question-actions .question-copy { position:static; opacity:1; width:32px; height:32px; }
+.question-actions .study-open { min-height:32px; }
+@media print { .question-actions { display:none; } }
+
+::highlight(saved-explanations) { background-color: #fce7a1; color:inherit; }

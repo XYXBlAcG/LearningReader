@@ -3,6 +3,8 @@ import Combine
 
 @MainActor
 public final class AIConversation:ObservableObject,Identifiable {
+    @Published public private(set) var thinking=false
+    @Published public private(set) var thoughtCompleted=false
     @Published public private(set) var record:StudyRecord
     public let id:UUID
     public var title:String { record.title }
@@ -36,16 +38,24 @@ public final class AIConversation:ObservableObject,Identifiable {
     public func retry() { generate(input:current?.input ?? []) }
     private func generate(input:[AIMessage]) {
         stop()
+        thinking=false;thoughtCompleted=false
         selectedVersionID=nil
         record.versions.append(.init(input:input,model:profile.modelID,service:profile.name))
         let token=generation
         let request=AIRequest(profile:profile,key:key,system:record.system,messages:[record.initial]+input)
         task=Task { [weak self,client] in
             do {
-                try await client.generate(request) { [weak self] text in
+                try await client.generate(request,onThinking:{ [weak self] in
+                    guard let target=self else {return}
+                    await MainActor.run {
+                        guard target.generation==token,!target.thoughtCompleted else {return}
+                        target.thinking=true
+                    }
+                }) { [weak self] text in
                     guard let target=self else { return }
                     await MainActor.run {
                         guard target.generation==token else { return }
+                        if !text.isEmpty && target.thinking {target.thinking=false;target.thoughtCompleted=true}
                         target.record.versions[target.record.versions.count-1].answer=text;target.publish()
                     }
                 }

@@ -2,6 +2,12 @@ import XCTest
 @testable import AICore
 
 final class AITests: XCTestCase {
+    func testReasoningSignalsDoNotBecomeAnswerText() throws {
+        XCTAssertEqual(try AIStream.decode(#"{"choices":[{"delta":{"reasoning_content":"推理"}}]}"#,api:.chatCompletions),[.thinking])
+        XCTAssertEqual(try AIStream.decode(#"{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"推理"}}"#,api:.anthropic),[.thinking])
+        XCTAssertEqual(try AIStream.decode(#"{"candidates":[{"content":{"parts":[{"thought":true,"text":"推理"},{"text":"答案"}]}}]}"#,api:.gemini),[.thinking,.text("答案")])
+    }
+
     func testEndpointsPreserveVersionAndGatewayPrefix() throws {
         for api in AIProtocol.allCases {
             var profile = AIProfile(name: "Test", api: api, baseURL: "https://example.org/gateway/\(api == .gemini ? "v1beta" : "v1")/", model: "test-model")

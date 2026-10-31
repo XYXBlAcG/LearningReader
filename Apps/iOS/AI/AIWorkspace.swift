@@ -7,6 +7,7 @@ final class AIWorkspace: ObservableObject {
     @Published private(set) var settings = AISettings()
     @Published var issue: String?
     let study=StudyWorkspace()
+    let practice=PracticeWorkspace()
     private let store: AISettingsStore
 
     init() {

@@ -6,7 +6,7 @@ const {JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'../../Sources/LearningCore/Resources/Reader');
 function setup(){
  const dom=new JSDOM('<main id="article"></main>',{runScripts:'outside-only',url:'https://offline.test/'});
- for(const file of ['vendor/marked.min.js','vendor/marked-cjk-friendly.min.js','vendor/purify.min.js','vendor/turndown-7.2.2.js','vendor/turndown-plugin-gfm-1.0.2.js','selection-copy.js','markdown.js','glossary-core.js','glossary-ui.js'])dom.window.eval(fs.readFileSync(path.join(root,file),'utf8'));
+ for(const file of ['vendor/marked.min.js','vendor/marked-cjk-friendly.min.js','vendor/purify.min.js','vendor/turndown-7.2.2.js','vendor/turndown-plugin-gfm-1.0.2.js','selection-copy.js','markdown.js','text-map.js','glossary-core.js','glossary-ui.js'])dom.window.eval(fs.readFileSync(path.join(root,file),'utf8'));
  return dom;
 }
 const library={version:1,terms:[{id:'mean-value',term:'中值定理',aliases:[],subject:'微积分',body:'## 直觉\n平均速度。\n\n## 定义\n闭区间连续。\n\n## 例子\n$f(x)=x^2$。',notes:[],related:[]}]};
@@ -43,6 +43,15 @@ test('off mode preserves article and ambiguous words show choices',async()=>{
  assert.equal(article.querySelector('.glossary-term'),null);
  await view.openTerm(['mean-value','cauchy']);
  assert.equal(w.document.querySelectorAll('.glossary-choice').length,2);
+ view.dispose();
+ }finally{dom.window.close();}
+});
+test('nested excluded content cannot shift later term positions',async()=>{
+ const dom=setup();try{
+ const w=dom.window,article=w.document.getElementById('article');
+ article.innerHTML='<h2><span>无关标题文字</span></h2><p><a href="x"><strong>链接文字</strong></a><span data-math-source="$x$"><i>公式文字</i></span>这是中值定理的例子。</p>';
+ const view=await w.ReaderGlossaryUI.mount(article,{library,mode:'all'});
+ assert.deepEqual([...article.querySelectorAll('.glossary-term')].map(n=>n.textContent),['中值定理']);
  view.dispose();
  }finally{dom.window.close();}
 });

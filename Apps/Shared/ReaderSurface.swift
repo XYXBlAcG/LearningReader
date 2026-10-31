@@ -18,6 +18,13 @@ final class ReaderController: ObservableObject {
     #if os(iOS)
     var loadedSourceID:String?
     var pendingOpen:(String,ReaderDocumentTarget)?
+    var annotationData:(()->[[String:String]])?
+    var onCheckpointMistake:((CheckpointLocation,String)->Void)?
+    var onKnowledge:((String,String,String)->Void)?
+    var onAnnotation:(([String])->Void)?
+    func refreshAnnotations(){
+        webView?.callAsyncJavaScript("window.ReaderSavedAnnotations=records;window.refreshAnnotations?.()",arguments:["records":annotationData?() ?? []],in:nil,in:.page,completionHandler:nil)
+    }
     var onReference:(([StudyQuestion],String,String)->Void)?
     var onSelection: ((AISelectionCommand) -> Void)?
     var selectionActions: [AISelectionAction] = [.explain] {
@@ -156,6 +163,16 @@ struct ReaderSurface: PlatformReaderView {
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             #if os(iOS)
+            if message.webView === controller.webView,message.frameInfo.isMainFrame,message.frameInfo.request.url?.scheme=="mathreader",message.frameInfo.request.url?.host=="local",let body=message.body as? [String:Any],body["type"] as? String=="practiceTerm",let id=body["id"] as? String {
+                do {
+                    guard let data=snapshot.course.indices["glossary.json"] else {throw ReaderError.invalidIndex}
+                    let catalog=try JSONDecoder().decode(CourseGlossaryReview.self,from:data)
+                    guard let term=catalog.terms.first(where:{$0.id==id}) else {throw ReaderError.invalidIndex}
+                    controller.onKnowledge?(term.id,term.term,term.body)
+                } catch {onError(error.localizedDescription)}
+                return
+            }
+            if message.webView === controller.webView,message.frameInfo.isMainFrame,message.frameInfo.request.url?.scheme=="mathreader",message.frameInfo.request.url?.host=="local",let body=message.body as? [String:Any],body["type"] as? String=="annotation",let ids=body["ids"] as? [String] {controller.onAnnotation?(ids);return}
             if message.webView === controller.webView,message.frameInfo.isMainFrame,
                message.frameInfo.request.url?.scheme=="mathreader",message.frameInfo.request.url?.host=="local",
                let body=message.body as? [String:Any],body["type"] as? String=="study" {
@@ -175,6 +192,9 @@ struct ReaderSurface: PlatformReaderView {
                   let raw = body["state"], let data = try? JSONSerialization.data(withJSONObject: raw),
                   let state = try? JSONDecoder().decode(ReaderWebState.self, from: data) else { return }
             controller.state = state
+            #if os(iOS)
+            controller.refreshAnnotations()
+            #endif
             #if os(iOS)
             if let pending=controller.pendingOpen,pending.0==sourceID,state.hasDocument {
                 controller.pendingOpen=nil;controller.open(pending.1)

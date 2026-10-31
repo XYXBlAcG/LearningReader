@@ -15,7 +15,14 @@ extension ReaderSurface.Coordinator {
                     checkpointService=CheckpointService(courseID:sourceID,locations:try JSONDecoder().decode([CheckpointLocation].self,from:data))
                 }
                 guard let checkpointService else {throw ReaderError.invalidIndex}
-                reply(try JSONSerialization.jsonObject(with:JSONEncoder().encode(try await checkpointService.request(command))),nil)
+                let state=try await checkpointService.request(command)
+                #if os(iOS)
+                if command.action == .submit,let event=state.attempts.first(where:{$0.id==command.eventID}),event.correct == false,
+                   let data=snapshot.course.indices["checkpoints.json"],let location=try JSONDecoder().decode([CheckpointLocation].self,from:data).first(where:{$0.question.id==event.questionID}) {
+                    controller.onCheckpointMistake?(location,sourceID)
+                }
+                #endif
+                reply(try JSONSerialization.jsonObject(with:JSONEncoder().encode(state)),nil)
             } catch {reply(nil,error.localizedDescription)}
         }
     }

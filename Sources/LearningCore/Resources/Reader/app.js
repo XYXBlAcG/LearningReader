@@ -148,7 +148,10 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
     const target=document.getElementById(item.anchor)?.parentElement;
     if(!target)continue;
     const button=document.createElement('button');button.type='button';button.className='study-open text-btn';button.textContent='对照';
-    button.onclick=()=>openReferenceStudy(button,item.id);target.prepend(button);
+    button.onclick=()=>openReferenceStudy(button,item.id);
+    const actions=document.createElement('span');actions.className='question-actions';actions.dataset.copyIgnore='true';
+    const copy=target.querySelector(':scope > .question-copy');actions.append(button);if(copy)actions.append(copy);
+    target.prepend(actions);
   }
   ReaderCodeBlocks.enhance($("article"));
   enhanceLocalMedia($("article"));
@@ -162,6 +165,7 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
   setupHeadings($("article"));
   await typeset();
   await attachGlossary(article);
+  refreshAnnotations();
   if(owner!==active||!article.isConnected)return;
   await new Promise((resolve) => requestAnimationFrame(() => {
     const target = anchor ? document.getElementById(anchor) : null;
@@ -1189,3 +1193,10 @@ Promise.all([fetch(DATA_SOURCE.filesUrl()).then(r=>r.json()), fetch('/reader/doc
     $("article").innerHTML = '<div class="prose"><p class="err">加载文件列表失败：' +
       escHtml(String(err)) + "</p></div>";
   });
+
+function refreshAnnotations(){
+ if(!active||!window.ReaderAnnotations)return;
+ const article=document.getElementById('article');
+ const records=(window.ReaderSavedAnnotations||[]).filter(x=>x.path===active.path&&x.kind===active.kind);
+ ReaderAnnotations.mount(article,records,ids=>window.webkit?.messageHandlers?.mathReader?.postMessage({type:'annotation',ids}));
+}

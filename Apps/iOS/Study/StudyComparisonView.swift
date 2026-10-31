@@ -20,6 +20,7 @@ struct StudyComparisonView<Answer:View>:View {
                 HStack {
                     Text("题目／所选内容").font(.caption).foregroundStyle(.secondary)
                     Spacer()
+                    Button { UIPasteboard.general.string=question } label:{Image(systemName:"doc.on.doc")}.accessibilityLabel("复制题目")
                     Button { expanded=true } label:{Image(systemName:"arrow.up.left.and.arrow.down.right")}.accessibilityLabel("展开题目")
                     Button { collapsed.toggle() } label:{Image(systemName:collapsed ? "chevron.down":"chevron.up")}.accessibilityLabel(collapsed ? "显示题目":"收起题目")
                 }.padding(.horizontal).padding(.vertical,6)
@@ -58,6 +59,7 @@ struct ReferenceStudy:Identifiable {
 
 struct ReferenceStudyView:View {
     let study:ReferenceStudy
+    @EnvironmentObject private var practice:PracticeWorkspace
     @EnvironmentObject private var ai:AIWorkspace
     @EnvironmentObject private var library:StudyWorkspace
     @Environment(\.dismiss) private var dismiss
@@ -73,6 +75,10 @@ struct ReferenceStudyView:View {
             if !study.questions.isEmpty {
                 let item=study.questions[selected]
                 VStack(spacing:0) {
+                    HStack {
+                        Button("收藏题目"){practice.capture(item,mistake:false)}
+                        Button("加入错题集"){practice.capture(item,mistake:true)}
+                    }
                     Picker("选择题目",selection:$selected) {
                         ForEach(study.questions.indices,id:\.self){index in Text(study.questions[index].label).tag(index)}
                     }.pickerStyle(.menu)

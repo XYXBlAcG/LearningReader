@@ -45,7 +45,8 @@ struct AIConversationView: View {
                     Button("保存"){library.save(session.record)}.disabled(!session.record.hasAnswer)
                 }.padding(.horizontal)
                 if let issue=library.issue { Text(issue).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).padding(.horizontal) }
-                if session.running { HStack { ProgressView().controlSize(.small); Text("正在讲解").font(.caption); Spacer(); Button("停止") { session.stop() } }.padding(.horizontal).padding(.vertical, 8) }
+                if session.running { HStack { ProgressView().controlSize(.small); Text(session.thinking ? "正在思考" : session.answer.isEmpty ? "正在等待回答" : session.thoughtCompleted ? "思考已完成 · 正在讲解" : "正在讲解").font(.caption); Spacer(); Button("停止") { session.stop() } }.padding(.horizontal).padding(.vertical, 8) }
+                if !session.running && session.thoughtCompleted {Text("思考已完成").font(.caption).foregroundStyle(.secondary)}
                 if let issue = session.issue { Text(issue).font(.callout).foregroundStyle(.secondary).textSelection(.enabled).padding(.horizontal) }
                 if let renderingIssue { Text(renderingIssue).font(.callout).foregroundStyle(.secondary).textSelection(.enabled).padding(.horizontal) }
                 HStack(alignment: .bottom) {

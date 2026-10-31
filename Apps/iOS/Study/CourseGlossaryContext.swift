@@ -27,3 +27,8 @@ private struct CourseGlossaryLinks: Decodable {
     struct Term: Decodable { let notes: [ReaderDocumentTarget] }
     let terms: [Term]
 }
+
+struct CourseGlossaryReview:Decodable {
+    struct Term:Decodable {let id:String;let term:String;let body:String}
+    let terms:[Term]
+}

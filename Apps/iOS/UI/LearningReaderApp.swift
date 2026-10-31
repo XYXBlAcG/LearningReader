@@ -11,6 +11,7 @@ struct LearningReaderApp: App {
             LearningView(model: model)
                 .environmentObject(ai)
                 .environmentObject(ai.study)
+                .environmentObject(ai.practice)
                 .frame(minWidth: 320, minHeight: 420)
                 .preferredColorScheme(.light)
         }
@@ -27,6 +28,8 @@ struct LearningView: View {
     @State private var settings = false
     @State private var history = false
     @State private var localStudies=false
+    @State private var practiceLibrary=false
+    @State private var annotationRecord:StudyRecord?
     @State private var exportPaper=false
     @State private var reference:ReferenceStudy?
     @State private var tools = false
@@ -42,6 +45,7 @@ struct LearningView: View {
                 List {
                     Button("课程仓库",systemImage:"books.vertical") { courses=true }
                     Button("本地讲解",systemImage:"tray.full") { localStudies=true }
+                    Button("今日复习与错题集",systemImage:"star"){practiceLibrary=true}
                 }.navigationTitle("课程目录")
             }
         } detail: {
@@ -76,6 +80,7 @@ struct LearningView: View {
                         Button("历史记录", systemImage: "clock") { history = true }
                         Button("课程术语库",systemImage:"text.book.closed") {reader.send("glossary")}.disabled(reader.state?.hasDocument != true)
                         Button("本地讲解",systemImage:"tray.full") {localStudies=true}
+                        Button("今日复习与错题集",systemImage:"star"){practiceLibrary=true}
                         Section("讲一讲") {
                             Button("拍照提问", systemImage: "camera") { interaction.media = .camera }
                             Button("选择图片", systemImage: "photo") { interaction.media = .library }
@@ -110,6 +115,8 @@ struct LearningView: View {
             }
             .fullScreenCover(item:$reference){ReferenceStudyView(study:$0).environment(\.courseGlossary,courseGlossary)}
             .sheet(isPresented:$exportPaper){ExerciseExportView(reader:reader)}
+            .sheet(item:$annotationRecord){record in NavigationStack{SavedStudyView(initial:record,onSource:{source in annotationRecord=nil;ai.study.onOpenSource?(source)})}}
+            .sheet(isPresented:$practiceLibrary){PracticeLibraryView()}
             .sheet(isPresented:$localStudies){StudyLibraryView(courseID:model.selected?.id)}
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
             .sheet(isPresented: $settings) { AppSettingsView(model: model) }
@@ -138,13 +145,27 @@ struct LearningView: View {
                     for index in questions.indices {questions[index].source?.courseID=model.selected?.id ?? ""}
                     reference=ReferenceStudy(questions:questions,document:document,selectedID:selectedID)
                 }
+                ai.practice.onOpen={practiceLibrary=true}
+                reader.onCheckpointMistake={ai.practice.captureCheckpoint($0,courseID:$1)}
+                reader.onKnowledge={id,title,body in
+                    ai.practice.captureKnowledge(id:id,title:title,body:body,courseID:model.selected?.id ?? "")
+                    practiceLibrary=true
+                }
+                reader.annotationData={ai.study.annotations(courseID:model.selected?.id ?? "")}
+                reader.onAnnotation={ids in
+                    guard let id=ids.first.flatMap(UUID.init(uuidString:)),let record=ai.study.record(id),record.source?.courseID==model.selected?.id else{return}
+                    annotationRecord=record
+                }
                 reader.onSelection = { interaction.begin($0, workspace: ai) }
                 reader.selectionActions=ai.settings.actions
                 await model.start()
             }
+            .onReceive(ai.study.$records){_ in reader.refreshAnnotations()}
+            .onReceive(ai.study.$hiddenAnnotations){_ in reader.refreshAnnotations()}
+            .onReceive(NotificationCenter.default.publisher(for:UIApplication.significantTimeChangeNotification)){_ in ai.practice.refresh()}
             .onReceive(ai.$settings) { reader.selectionActions=$0.actions }
             .onChange(of: model.library.selectedID) { _ in reader.state = nil }
-            .onChange(of: scenePhase) { value in if value == .active { model.sync(automatic: true) } else {ai.study.flush()} }
+            .onChange(of: scenePhase) { value in if value == .active { ai.practice.refresh();model.sync(automatic: true) } else {ai.study.flush()} }
         }
         .tint(Color(red: 0.06, green: 0.59, blue: 0.46))
         .modifier(AIHost(interaction: interaction))

@@ -28,7 +28,7 @@ public struct SSEParser {
     public mutating func finish() throws -> [String] { try append(Data("\n\n".utf8)) }
 }
 
-public enum AIStreamEvent: Equatable, Sendable { case text(String), completed }
+public enum AIStreamEvent: Equatable, Sendable { case text(String), thinking, completed }
 
 public enum AIStream {
     public static func decode(_ data: String, api: AIProtocol) throws -> [AIStreamEvent] {
@@ -39,6 +39,7 @@ public enum AIStream {
         case .chatCompletions:
             guard let choices = object["choices"] as? [[String: Any]], let choice = choices.first else { return [] }
             var result: [AIStreamEvent] = []
+            if let delta=choice["delta"] as? [String:Any], let reasoning=delta["reasoning_content"] as? String,!reasoning.isEmpty {result.append(.thinking)}
             if let delta = choice["delta"] as? [String: Any], let text = delta["content"] as? String { result.append(.text(text)) }
             if let reason = choice["finish_reason"] as? String {
                 guard reason == "stop" else { throw AIError.incomplete }
@@ -47,6 +48,7 @@ public enum AIStream {
             return result
         case .responses:
             switch object["type"] as? String {
+            case "response.reasoning_summary_text.delta", "response.reasoning_text.delta": return [.thinking]
             case "response.output_text.delta": return [.text(object["delta"] as? String ?? "")]
             case "response.refusal.delta": return [.text(object["delta"] as? String ?? "")]
             case "response.completed": return [.completed]
@@ -57,6 +59,7 @@ public enum AIStream {
             switch object["type"] as? String {
             case "content_block_delta":
                 let delta = object["delta"] as? [String: Any]
+                if delta?["type"] as? String == "thinking_delta" {return [.thinking]}
                 return delta?["type"] as? String == "text_delta" ? [.text(delta?["text"] as? String ?? "")] : []
             case "message_delta":
                 if let delta = object["delta"] as? [String: Any], let reason = delta["stop_reason"] as? String, !["end_turn", "stop_sequence"].contains(reason) { throw AIError.incomplete }
@@ -69,7 +72,8 @@ public enum AIStream {
             guard let candidates = object["candidates"] as? [[String: Any]], let candidate = candidates.first else { return [] }
             let content = candidate["content"] as? [String: Any]
             let parts = content?["parts"] as? [[String: Any]] ?? []
-            var result: [AIStreamEvent] = parts.filter { $0["thought"] as? Bool != true }.compactMap { ($0["text"] as? String).map(AIStreamEvent.text) }
+            var result: [AIStreamEvent] = parts.contains{$0["thought"] as? Bool == true} ? [.thinking] : []
+            result += parts.filter { $0["thought"] as? Bool != true }.compactMap { ($0["text"] as? String).map(AIStreamEvent.text) }
             if let reason = candidate["finishReason"] as? String {
                 guard reason == "STOP" else { throw AIError.incomplete }
                 result.append(.completed)
