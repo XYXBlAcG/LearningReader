@@ -5,6 +5,8 @@ import plistlib
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 import zipfile
 
 spec = importlib.util.spec_from_file_location('publish_ios', Path(__file__).resolve().parents[2] / 'Tools/publish_ios.py')
@@ -13,6 +15,13 @@ spec.loader.exec_module(publish_ios)
 
 
 class IOSReleaseTests(unittest.TestCase):
+    def test_draft_metadata_is_read_by_its_resolved_api_url(self):
+        with patch.object(publish_ios.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout='https://api.github.com/repos/o/r/releases/42\n', stderr='')), patch.object(publish_ios.subprocess, 'check_output', return_value='{"id":42,"draft":true,"assets":[]}') as request:
+            result=publish_ios.release_metadata('v2.11.0')
+            self.assertTrue(result['draft'])
+            self.assertEqual(result['id'],42)
+            self.assertIn('/releases/42',request.call_args.args[0][-1])
+
     def test_version_identity_architecture_and_checksum(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

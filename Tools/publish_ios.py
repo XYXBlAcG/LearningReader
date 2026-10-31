@@ -37,6 +37,15 @@ def prepare(source, destination, version_file, tag):
     return version, [ipa, sums]
 
 
+def release_metadata(tag):
+    result = subprocess.run(['gh', 'release', 'view', tag, '--json', 'apiUrl', '--jq', '.apiUrl'], text=True, capture_output=True)
+    if result.returncode:
+        if 'release not found' in result.stderr.lower():
+            return None
+        raise RuntimeError(result.stderr)
+    return json.loads(subprocess.check_output(['gh', 'api', result.stdout.strip()], text=True))
+
+
 def publish():
     tag = os.environ['GITHUB_REF_NAME']
     repository = os.environ['GITHUB_REPOSITORY']
@@ -47,14 +56,12 @@ def publish():
     version, assets = prepare(Path('build/release-input/LearningReader-unsigned.ipa'), Path('build/publish'), Path('Config/iOS-Version.xcconfig'), tag)
     notes = Path('build/publish/notes.md')
     notes.write_text(Path('docs/releases/iOS.md').read_text() + '\n\n构建记录：https://github.com/' + repository + '/actions/runs/' + os.environ['GITHUB_RUN_ID'] + '\n')
-    lookup = subprocess.run(['gh', 'api', 'repos/' + repository + '/releases/tags/' + tag], text=True, capture_output=True)
-    if lookup.returncode:
-        if '404' not in lookup.stderr:
-            raise RuntimeError(lookup.stderr)
+    release = release_metadata(tag)
+    if release is None:
         subprocess.run(['gh', 'release', 'create', tag, '--verify-tag', '--draft', '--title', '知序 ' + version, '--notes-file', str(notes)], check=True)
-        release = {'assets': []}
-    else:
-        release = json.loads(lookup.stdout)
+        release = release_metadata(tag)
+    if release is None:
+        raise RuntimeError('无法读取待发布的 Release')
     for asset in assets:
         expected = 'sha256:' + hashlib.sha256(asset.read_bytes()).hexdigest()
         existing = next((item for item in release['assets'] if item['name'] == asset.name), None)
@@ -63,7 +70,9 @@ def publish():
                 raise ValueError('已有附件与本次构建不一致，拒绝覆盖：' + asset.name)
         else:
             subprocess.run(['gh', 'release', 'upload', tag, str(asset)], check=True)
-    uploaded = json.loads(subprocess.check_output(['gh', 'api', 'repos/' + repository + '/releases/tags/' + tag], text=True))
+    uploaded = release_metadata(tag)
+    if uploaded is None:
+        raise RuntimeError('无法校验 Release 附件')
     for asset in assets:
         expected = 'sha256:' + hashlib.sha256(asset.read_bytes()).hexdigest()
         if not any(item['name'] == asset.name and item.get('digest') == expected for item in uploaded['assets']):
