@@ -19,6 +19,8 @@ jobs:
   clients:
     runs-on: ${{ inputs.runner || 'macos-15' }}
     timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,7 +60,8 @@ jobs:
           xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/iOS CODE_SIGNING_ALLOWED=NO build > build/ios-build.log 2>&1 || { tail -160 build/ios-build.log; exit 1; }
       - name: PDF renderer checks
         run: |
-          device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for runtime,items in devices.items() if ".iOS-" in runtime for d in items if d["name"].startswith("iPhone")))')
+          simulator_sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; suffix=".iOS-"+sys.argv[1].replace(".","-"); print(next(d["udid"] for runtime,items in devices.items() if runtime.endswith(suffix) for d in items if d["name"].startswith("iPhone")))' "$simulator_sdk")
           test_status=0
           xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Debug -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/PDFTests -resultBundlePath build/PDFValidation.xcresult CODE_SIGNING_ALLOWED=NO test -parallel-testing-enabled NO -only-testing:ReaderPDFTests > build/pdf-tests.log 2>&1 || test_status=$?
           xcrun xcresulttool export attachments --path build/PDFValidation.xcresult --output-path build/PrintValidation
