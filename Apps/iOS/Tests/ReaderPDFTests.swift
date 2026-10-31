@@ -61,10 +61,16 @@ extension ReaderPDFTests {
         let controller=UIViewController();window.rootViewController=controller
         controller.view.addSubview(renderer.web);window.isHidden=false
         defer {window.isHidden=true}
-        let paper=ExercisePaper(title:"页眉专用测试标题",html:"<article><p>独立打印内容</p></article>",questionCount:1,warnings:[])
+        let paper=ExercisePaper(title:"页眉专用测试标题",html:"<article><p>PRINT_BODY_MARKER 独立打印内容</p></article>",questionCount:1,warnings:[])
         let data=try await renderer.export(paper,header:false,footer:false)
         let document=try XCTUnwrap(PDFDocument(data:data))
-        XCTAssertTrue(document.string?.contains("独立打印内容")==true)
-        XCTAssertFalse(document.string?.contains("页眉专用测试标题")==true)
+        let attachment=XCTAttachment(data:data,uniformTypeIdentifier:"com.adobe.pdf")
+        attachment.name="no-page-bands.pdf";attachment.lifetime = .keepAlways;add(attachment)
+        let text=document.string ?? "<nil>"
+        print("NO_PAGE_BANDS_TEXT: \(text.debugDescription)")
+        let compact=text.replacingOccurrences(of:#"\s+"#,with:"",options:.regularExpression)
+        XCTAssertTrue(compact.contains("PRINT_BODY_MARKER"),text)
+        XCTAssertTrue(compact.contains("独立打印内容"),text)
+        XCTAssertFalse(compact.contains("页眉专用测试标题"),text)
     }
 }
