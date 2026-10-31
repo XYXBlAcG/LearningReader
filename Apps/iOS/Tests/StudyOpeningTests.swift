@@ -3,9 +3,9 @@ import AICore
 import StudyLibrary
 @testable import LearningReader
 
-@MainActor
 final class StudyOpeningTests: XCTestCase {
-    func testSavedSummaryLoadsCompleteRecordWithoutAIConfiguration() throws {
+    @MainActor
+    func testSavedSummaryLoadsCompleteRecordWithoutAIConfiguration() async throws {
         let store=try StudyStore(inMemory:true)
         var record=StudyRecord(material:.init(title:"题目",text:"求导"),initial:.init(role:.user,text:"题目与上下文"),system:"教学",action:.explain)
         var version=StudyVersion(input:[],model:"offline",service:"saved")
