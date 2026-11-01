@@ -46,7 +46,7 @@ struct AnnotationEditor:View {
             Form {
                 Section("关联选文") {
                     TextEditor(text:$item.quote).frame(minHeight:80).accessibilityLabel("关联的原文文字")
-                        .onChange(of:item.quote){_ in item.prefix="";item.suffix=""}
+                        .onChange(of:item.quote){ item.prefix="";item.suffix=""}
                     if annotations.unresolved.contains(item.id.uuidString){Text("原文位置尚未匹配。可将当前原文的准确文字粘贴到上方重新关联；原笔记仍保留。").font(.caption).foregroundStyle(.orange)}
                 }
                 Section("笔记"){TextEditor(text:$item.note).frame(minHeight:180).accessibilityLabel("笔记正文")}
