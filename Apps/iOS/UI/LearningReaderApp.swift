@@ -23,6 +23,7 @@ struct LearningReaderApp: App {
 struct LearningView: View {
     @ObservedObject var model: ReaderModel
     @StateObject private var reader = ReaderController()
+    @StateObject private var update=UpdateStatus()
     @StateObject private var interaction = AIInteraction()
     @EnvironmentObject private var ai: AIWorkspace
     @Environment(\.scenePhase) private var scenePhase
@@ -158,6 +159,7 @@ struct LearningView: View {
             .alert("知序", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) {
                 Button("知道了") { model.issue = nil }
             } message: { Text(model.issue ?? "") }
+            .alert("软件更新",isPresented:Binding(get:{update.url != nil},set:{if !$0 {update.url=nil}})){if let url=update.url {Link("下载新版本",destination:url)};Button("稍后",role:.cancel){update.url=nil}}message:{Text(update.message)}
             .task {
                 ai.study.onOpenSource={source in
                     reference=nil;localStudies=false
@@ -205,6 +207,7 @@ struct LearningView: View {
                 reader.onSelection = { interaction.begin($0, workspace: ai) }
                 reader.selectionActions=ai.settings.actions
                 await model.start()
+                await update.check(automatic:true)
             }
             .onReceive(ai.annotations.$items){_ in Task{@MainActor in reader.refreshAnnotations()}}
             .onReceive(ai.study.$records){_ in Task{@MainActor in reader.refreshAnnotations()}}
@@ -212,7 +215,7 @@ struct LearningView: View {
             .onReceive(NotificationCenter.default.publisher(for:UIApplication.significantTimeChangeNotification)){_ in ai.practice.refresh()}
             .onReceive(ai.$settings) { reader.selectionActions=$0.actions }
             .onChange(of: model.library.selectedID) { _ in reader.state = nil }
-            .onChange(of: scenePhase) { value in if value == .active { ai.practice.refresh();model.sync(automatic: true) } else {ai.study.flush()} }
+            .onChange(of: scenePhase) { value in if value == .active { ai.practice.refresh();model.sync(automatic: true);Task{await update.check(automatic:true)} } else {ai.study.flush()} }
     }
     private func openMark(_ value:String){
         guard let id=UUID(uuidString:value) else {return}

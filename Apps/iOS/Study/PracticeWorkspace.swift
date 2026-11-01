@@ -51,6 +51,11 @@ final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenter
             try store.update(id){if mistake {$0.mistake=true;$0.scheduled=true} else {$0.favorite.toggle()}}
         }
     }
+    func editQuestion(_ question:StudyQuestion,change:(inout PracticeItem)->Void){perform{
+        guard let store else {throw CocoaError(.fileReadUnknown)}
+        let id=try store.capture(title:question.label,question:question.question,answer:question.answer,source:question.source)
+        try store.update(id,change:change)
+    }}
     func update(_ item:PracticeItem,change:(inout PracticeItem)->Void){perform{try store?.update(item.id,change:change)}}
     func grade(_ item:PracticeItem,_ grade:Int){perform{try store?.review(item.id,grade:grade,now:Date())}}
     func undo(_ item:PracticeItem){perform{try store?.undoReview(item.id)}}

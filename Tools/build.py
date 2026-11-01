@@ -17,7 +17,11 @@ def run(*command):
 def icons():
     output = ROOT / 'Apps/iOS/Assets.xcassets/AppIcon.appiconset'
     output.mkdir(parents=True, exist_ok=True)
-    run('sips', '-z', '1024', '1024', str(ROOT / 'Assets/AppIcon-master.png'), '--out', str(output / 'AppIcon.png'))
+    run('sips', '-z', '1024', '1024', str(ROOT / 'Assets/iOS-AppIcon-master.png'), '--out', str(output / 'AppIcon.png'))
+    about = ROOT / 'Apps/iOS/Assets.xcassets/AboutIcon.imageset'
+    about.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(output / 'AppIcon.png', about / 'icon.png')
+    (about / 'Contents.json').write_text(json.dumps({'images': [{'filename': 'icon.png', 'idiom': 'universal'}], 'info': {'author': 'xcode', 'version': 1}}))
     (output / 'Contents.json').write_text(json.dumps({'images': [{'filename': 'AppIcon.png', 'idiom': 'universal', 'platform': 'ios', 'size': '1024x1024'}], 'info': {'author': 'xcode', 'version': 1}}, indent=2) + '\n')
     iconset = ROOT / 'build/AppIcon.iconset'
     iconset.mkdir(parents=True, exist_ok=True)

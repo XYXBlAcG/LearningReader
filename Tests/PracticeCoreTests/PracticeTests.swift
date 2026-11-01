@@ -53,3 +53,19 @@ extension PracticeTests {
         XCTAssertEqual(ReviewConfidence.allCases.map(\.title),["不会","模糊","掌握"])
     }
 }
+
+extension PracticeTests {
+    func testQuestionNotesPreserveIndependentCollectionAndReviewState() throws {
+        let url=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer{try? FileManager.default.removeItem(at:url)}
+        let store=try PracticeStore(url:url)
+        let id=try store.capture(title:"题",question:"求导",answer:"答案",source:nil)
+        try store.update(id){$0.favorite=true;$0.scheduled=true;$0.notes="我的推导 $x^2$"}
+        try store.update(id){$0.favorite=false}
+        let loaded=try PracticeStore(url:url)
+        XCTAssertEqual(loaded.items.count,1)
+        XCTAssertTrue(loaded.items[0].scheduled)
+        XCTAssertFalse(loaded.items[0].favorite)
+        XCTAssertEqual(loaded.items[0].notes,"我的推导 $x^2$")
+    }
+}

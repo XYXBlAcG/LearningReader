@@ -35,6 +35,7 @@ struct PracticeDetailView:View {
     @State private var reveal=false
     @State private var lastReviewed:UUID?
     @State private var finished=false
+    @State private var notes=false
     init(id:UUID){_currentID=State(initialValue:id)}
     var body:some View {
         if finished {
@@ -60,6 +61,7 @@ struct PracticeDetailView:View {
                 if let issue=practice.issue {Text(issue).foregroundStyle(.red)}
             }.navigationTitle(item.title).navigationBarTitleDisplayMode(.inline)
             .toolbar {ToolbarItem(placement:.primaryAction){Menu {
+                Button("题目笔记",systemImage:"square.and.pencil"){notes=true}
                 if reveal {Button("回看题目"){reveal=false}}
                 Toggle("收藏",isOn:Binding(get:{item.favorite},set:{value in practice.update(item){$0.favorite=value}}))
                 Toggle("错题",isOn:Binding(get:{item.mistake},set:{value in practice.update(item){$0.mistake=value}}))
@@ -68,6 +70,7 @@ struct PracticeDetailView:View {
                     if let id=lastReviewed,let previous=practice.items.first(where:{$0.id==id}) {practice.undo(previous);if practice.issue==nil {currentID=id;lastReviewed=nil;reveal=true}}
                 }.disabled(lastReviewed==nil)
             }label:{Image(systemName:"ellipsis.circle")}}}
+            .sheet(isPresented:$notes){PracticeNoteEditor(item:item)}
         }
     }
 }

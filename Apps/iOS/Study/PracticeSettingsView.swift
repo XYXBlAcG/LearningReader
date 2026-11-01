@@ -2,8 +2,11 @@ import SwiftUI
 
 struct PracticeSettingsView:View {
     @EnvironmentObject private var practice:PracticeWorkspace
+    @AppStorage("favoriteReview") private var favoriteReview=true
+    @AppStorage("askFavoriteReview") private var askFavorite=true
     var body:some View {
         Form {
+                Section("收藏") {Toggle("默认加入复习",isOn:$favoriteReview);Toggle("收藏时询问",isOn:$askFavorite)}
                 Section("复习设置") {
                     Toggle("自测错题自动收录",isOn:Binding(get:{practice.settings.automaticMistakes},set:{value in var settings=practice.settings;settings.automaticMistakes=value;practice.configure(settings)}))
                     Slider(value:Binding(get:{practice.settings.retention},set:{value in var settings=practice.settings;settings.retention=value;practice.configure(settings)}),in:0.7...0.99,step:0.01){Text("目标保留率")}

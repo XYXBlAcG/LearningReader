@@ -75,10 +75,6 @@ struct ReferenceStudyView:View {
             if !study.questions.isEmpty {
                 let item=study.questions[selected]
                 VStack(spacing:0) {
-                    HStack {
-                        Button("收藏题目"){practice.capture(item,mistake:false)}
-                        Button("加入错题集"){practice.capture(item,mistake:true)}
-                    }
                     Picker("选择题目",selection:$selected) {
                         ForEach(study.questions.indices,id:\.self){index in Text(study.questions[index].label).tag(index)}
                     }.pickerStyle(.menu)
@@ -87,6 +83,7 @@ struct ReferenceStudyView:View {
                             ContentUnavailableView("未找到明确对应的答案",systemImage:"questionmark",description:Text("请回到原文核对答案，或使用讲一讲。"))
                         } else {GlossaryMarkdownContent(markdown:item.answer)}
                     }.id(item.id)
+                    QuestionActions(question:item).id(item.id)
                     HStack {
                         Button("上一题"){selected-=1}.disabled(selected==0)
                         Spacer()
