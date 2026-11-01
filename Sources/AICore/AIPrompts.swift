@@ -43,6 +43,8 @@ public struct AIMaterial: Sendable {
     public let text: String
     public let document: String
     public let image: AIImage?
+    public var selectionPrefix=""
+    public var selectionSuffix=""
     public let question:String?
     public let source:StudySource?
     public init(title: String, text: String, document: String = "", image: AIImage? = nil, question:String? = nil, source:StudySource? = nil) {

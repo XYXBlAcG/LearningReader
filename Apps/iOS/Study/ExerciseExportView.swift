@@ -56,7 +56,7 @@ struct ExerciseExportView:View {
                 defer {generating=false}
                 do {
                     guard let web=reader.webView else {throw ReaderError.missingContent}
-                    let raw=try await web.readerJavaScript("return await window.MathReaderBridge.paper(options)",arguments:["options":["answers":answers,"space":space,"questionsOnly":!fullBody]],world:.page)
+                    let raw=try await web.readerJavaScript("return await window.MathReaderBridge.paper(options)",arguments:["options":["answers":answers,"space":space,"questionsOnly":!fullBody,"excludeKnowledge":true]],world:.page)
                     guard let raw else {throw ReaderError.invalidIndex}
                     let prepared=try JSONDecoder().decode(ExercisePaper.self,from:JSONSerialization.data(withJSONObject:raw))
                     paper=prepared

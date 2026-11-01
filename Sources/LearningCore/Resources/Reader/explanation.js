@@ -9,7 +9,16 @@
     if (!id || !article) return null;
     const text = ReaderSelectionCopy.selectionMarkdown(article);
     const item=typeof ReaderStudyQuestions!=='undefined'?ReaderStudyQuestions.selected(article,current.questions||[]):null;
-    return text?.trim() ? {identity:id,text,title,document:current.source,question:item?.question||text,anchor:item?.anchor||''} : null;
+    let prefix='',suffix='';
+    const selection=article.ownerDocument.getSelection();
+    if(selection?.rangeCount&&root.ReaderTextMap){
+      const range=selection.getRangeAt(0);
+      for(const run of root.ReaderTextMap.collect(article)){
+        const start=run.nodes.find(n=>n.node===range.startContainer),end=run.nodes.find(n=>n.node===range.endContainer);
+        if(start&&end){prefix=run.text.slice(Math.max(0,start.start+range.startOffset-60),start.start+range.startOffset);suffix=run.text.slice(end.start+range.endOffset,end.start+range.endOffset+60);break;}
+      }
+    }
+    return text?.trim() ? {identity:id,text,title,document:current.source,question:item?.question||text,anchor:item?.anchor||'',prefix,suffix} : null;
   }
 
   function webpage(document) {

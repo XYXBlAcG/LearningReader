@@ -63,7 +63,7 @@ final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenter
             if !granted {issue="通知未开启，仍可在今日复习中学习。"}
         }catch{issue=error.localizedDescription}
     }
-    private func perform(_ operation:() throws->Void){do{guard store != nil else {throw CocoaError(.fileReadUnknown)};try operation();reload();reschedule()}catch{issue=error.localizedDescription}}
+    private func perform(_ operation:() throws->Void){do{guard store != nil else {throw CocoaError(.fileReadUnknown)};try operation();issue=nil;reload();reschedule()}catch{issue=error.localizedDescription}}
     private func reload(){items=store?.items ?? [];settings=store?.settings ?? PracticeSettings()}
     private func reschedule(){
         let settings=settings,items=items

@@ -1,6 +1,7 @@
 import SwiftUI
 import LearningCore
 import AICore
+import PracticeCore
 
 @main
 struct LearningReaderApp: App {
@@ -12,6 +13,7 @@ struct LearningReaderApp: App {
                 .environmentObject(ai)
                 .environmentObject(ai.study)
                 .environmentObject(ai.practice)
+                .environmentObject(ai.annotations)
                 .frame(minWidth: 320, minHeight: 420)
                 .preferredColorScheme(.light)
         }
@@ -26,6 +28,11 @@ struct LearningView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var courses = false
     @State private var settings = false
+    @State private var about=false
+    @State private var personalAnnotation:CourseAnnotation?
+    @State private var annotationLibrary=false
+    @State private var markChoices:[String]=[]
+    @State private var chooseMark=false
     @State private var glossaryPresentation:GlossaryPresentation?
     @State private var history = false
     @State private var localStudies=false
@@ -81,6 +88,7 @@ struct LearningView: View {
                         Button("历史记录", systemImage: "clock") { history = true }
                         Button("课程术语库",systemImage:"text.book.closed") {reader.send("glossary")}.disabled(reader.state?.hasDocument != true)
                         Button("本地讲解",systemImage:"tray.full") {localStudies=true}
+                        Button("笔记与高亮",systemImage:"highlighter"){annotationLibrary=true}
                         Button("今日复习与错题集",systemImage:"star"){practiceLibrary=true}
                         Section("讲一讲") {
                             Button("拍照提问", systemImage: "camera") { interaction.media = .camera }
@@ -99,6 +107,7 @@ struct LearningView: View {
                             Button("刷新课程", systemImage: "arrow.clockwise") { model.sync() }.disabled(model.syncing || model.selected == nil)
                             Button("课程仓库", systemImage: "books.vertical") { courses = true }
                             Button("设置", systemImage: "gearshape") { settings = true }
+                            Button("关于",systemImage:"info.circle"){about=true}
                         }
                     } label: { Image(systemName: "ellipsis.circle") }.help("阅读与同步设置")
                 }
@@ -121,6 +130,12 @@ struct LearningView: View {
             .sheet(isPresented:$practiceLibrary){PracticeLibraryView()}
             .sheet(isPresented:$localStudies){StudyLibraryView(courseID:model.selected?.id)}
             .sheet(isPresented: $courses) { CourseLibraryView(model: model) }
+            .sheet(item:$personalAnnotation){AnnotationEditor(item:$0)}
+            .sheet(isPresented:$annotationLibrary){AnnotationLibraryView()}
+            .confirmationDialog("选择笔记或讲解",isPresented:$chooseMark,titleVisibility:.visible){
+                ForEach(markChoices,id:\.self){id in Button(ai.annotations.items.first(where:{$0.id.uuidString==id})?.quote ?? ai.study.records.first(where:{$0.id.uuidString==id})?.title ?? "查看记录"){openMark(id)}}
+            }
+            .sheet(isPresented:$about){AboutView()}
             .sheet(isPresented: $settings) { AppSettingsView(model: model,reader:reader) }
             .sheet(isPresented: $history) { ReadingHistoryView(reader: reader) }
             .alert("知序", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) {
@@ -155,17 +170,28 @@ struct LearningView: View {
                         glossaryPresentation=GlossaryPresentation(catalog:try JSONDecoder().decode(CourseGlossaryCatalog.self,from:data),courseID:model.selected?.id ?? "",selected:ids)
                     }catch{model.issue=error.localizedDescription}
                 }
-                reader.annotationData={ai.study.annotations(courseID:model.selected?.id ?? "")}
-                reader.onAnnotation={ids in
-                    guard let id=ids.first.flatMap(UUID.init(uuidString:)),let record=ai.study.record(id),record.source?.courseID==model.selected?.id else{return}
-                    annotationRecord=record
+                reader.annotationData={ai.study.annotations(courseID:model.selected?.id ?? "")+ai.annotations.marks(courseID:model.selected?.id ?? "")}
+                reader.onAnnotationStatus={ids in let next=Set(ids);if ai.annotations.unresolved != next {ai.annotations.unresolved=next}}
+                reader.onAnnotation={ids in if ids.count>1 {markChoices=ids;chooseMark=true}else if let id=ids.first {openMark(id)}}
+                reader.onMark={load,note in
+                    Task {@MainActor in
+                        do {
+                            let material=try await load()
+                            guard let source=material.source,["note","exercise"].contains(source.kind) else {throw AISelectionError.invalidPayload}
+                            guard source.courseID==model.selected?.id else {throw AISelectionError.documentChanged}
+                            var item=CourseAnnotation(source:source,quote:material.text,prefix:material.selectionPrefix,suffix:material.selectionSuffix)
+                            item.highlighted = !note
+                            personalAnnotation=item
+                        }catch{model.issue=error.localizedDescription}
+                    }
                 }
                 reader.onSelection = { interaction.begin($0, workspace: ai) }
                 reader.selectionActions=ai.settings.actions
                 await model.start()
             }
-            .onReceive(ai.study.$records){_ in reader.refreshAnnotations()}
-            .onReceive(ai.study.$hiddenAnnotations){_ in reader.refreshAnnotations()}
+            .onReceive(ai.annotations.$items){_ in Task{@MainActor in reader.refreshAnnotations()}}
+            .onReceive(ai.study.$records){_ in Task{@MainActor in reader.refreshAnnotations()}}
+            .onReceive(ai.study.$hiddenAnnotations){_ in Task{@MainActor in reader.refreshAnnotations()}}
             .onReceive(NotificationCenter.default.publisher(for:UIApplication.significantTimeChangeNotification)){_ in ai.practice.refresh()}
             .onReceive(ai.$settings) { reader.selectionActions=$0.actions }
             .onChange(of: model.library.selectedID) { _ in reader.state = nil }
@@ -173,6 +199,11 @@ struct LearningView: View {
         }
         .tint(Color(red: 0.06, green: 0.59, blue: 0.46))
         .modifier(AIHost(interaction: interaction))
+    }
+    private func openMark(_ value:String){
+        guard let id=UUID(uuidString:value) else {return}
+        if let item=ai.annotations.items.first(where:{$0.id==id && $0.source.courseID==model.selected?.id}){personalAnnotation=item}
+        else if let record=ai.study.record(id),record.source?.courseID==model.selected?.id {annotationRecord=record}
     }
     private var courseGlossary: CourseGlossaryContext? {
         guard let data=model.snapshot?.course.indices["glossary.json"] else { return nil }

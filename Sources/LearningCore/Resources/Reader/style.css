@@ -1019,3 +1019,11 @@ body.immersive .prose { max-width: 50rem; }
 @media print { .question-actions { display:none; } }
 
 ::highlight(saved-explanations) { background-color: #fce7a1; color:inherit; }
+
+.question-actions .question-copy,.question-actions .study-open {
+ position:static;opacity:1;display:inline-flex;align-items:center;justify-content:center;
+ min-width:48px;width:auto;height:32px;padding:0 10px;border:0;border-radius:8px;
+ color:var(--accent);background:var(--accent-soft);font:500 13px/1 var(--sans);cursor:pointer;
+}
+
+.question-actions .question-copy[data-state="error"] {color:#c33;}

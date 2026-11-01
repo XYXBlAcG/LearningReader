@@ -24,6 +24,18 @@
    (answerLevel!==null?answers:body).append(node);
   }
   if(!referenceCount&&!checkpoints.length)warnings.push('未找到明确的参考答案分区，请在预览中核对是否包含答案。');
+  if(options.excludeKnowledge){
+   for(const section of [body,answers]){
+    let skipped=null;
+    for(const node of [...section.children]){
+     const level=/^H[1-6]$/.test(node.tagName)?Number(node.tagName[1]):null;
+     if(skipped!==null&&level!==null&&level<=skipped)skipped=null;
+     const name=node.textContent.trim().replace(/^(?:[（(]?\d+(?:\.\d+)*[）)]?|[一二三四五六七八九十]+)[.、．\s]+/,'');
+     if(level!==null&&/^(?:知识链[接连]|知识关联|相关笔记|相关知识)(?:$|[:：（(\s])/.test(name))skipped=level;
+     if(skipped!==null)node.remove();
+    }
+   }
+  }
   if(options.questionsOnly){
    for(const section of [body,answers]){
     let skipped=null;

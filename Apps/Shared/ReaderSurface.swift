@@ -21,11 +21,13 @@ final class ReaderController: ObservableObject {
     var annotationData:(()->[[String:String]])?
     var onCheckpointMistake:((CheckpointLocation,String)->Void)?
     var onGlossary:(([String])->Void)?
+    var onAnnotationStatus:(([String])->Void)?
     var onAnnotation:(([String])->Void)?
     func refreshAnnotations(){
-        webView?.callAsyncJavaScript("window.ReaderSavedAnnotations=records;window.refreshAnnotations?.()",arguments:["records":annotationData?() ?? []],in:nil,in:.page,completionHandler:nil)
+        webView?.callAsyncJavaScript("window.ReaderSavedAnnotations=records;return window.refreshAnnotations?.() ?? []",arguments:["records":annotationData?() ?? []],in:nil,in:.page){[weak self] result in if case .success(let value)=result,let missing=value as? [String] {self?.onAnnotationStatus?(missing)}}
     }
     var onReference:(([StudyQuestion],String,String)->Void)?
+    var onMark:((@escaping @MainActor () async throws -> AIMaterial,Bool)->Void)?
     var onSelection: ((AISelectionCommand) -> Void)?
     var selectionActions: [AISelectionAction] = [.explain] {
         didSet { (webView as? ExplainingWebView)?.actions=selectionActions }
@@ -87,6 +89,7 @@ struct ReaderSurface: PlatformReaderView {
         let web = ExplainingWebView(frame: .zero, configuration: configuration)
         controller.loadedSourceID=sourceID
         web.courseSelection = true
+        web.onMark={ [weak controller] load,note in controller?.onMark?(load,note)}
         web.actions=controller.selectionActions
         web.onAction = { [weak controller] command in
             guard let handler=controller?.onSelection else { onError("阅读器操作尚未准备就绪，请重试。"); return }

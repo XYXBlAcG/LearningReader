@@ -30,22 +30,44 @@ struct PracticeLibraryView:View {
     }
 }
 struct PracticeDetailView:View {
-    let id:UUID
+    @State private var currentID:UUID
     @EnvironmentObject private var practice:PracticeWorkspace
     @State private var reveal=false
+    @State private var lastReviewed:UUID?
+    @State private var finished=false
+    init(id:UUID){_currentID=State(initialValue:id)}
     var body:some View {
-        if let item=practice.items.first(where:{$0.id==id}) {
-            VStack {
-                StudyComparisonView(question:item.question){
-                    if reveal {MarkdownContentView(markdown:item.answer.isEmpty ? "暂无参考答案，可回到原题使用讲一讲。":item.answer)}
-                    else {Button("查看答案"){reveal=true}}
-                }
-                if reveal {HStack{ForEach(Array(["忘记","困难","掌握","轻松"].enumerated()),id:\.offset){index,title in Button(title){practice.grade(item,index+1);reveal=false}}}.padding()}
+        if finished {
+            ContentUnavailableView {
+                Label("本次复习已完成",systemImage:"checkmark.circle")
+            } description:{EmptyView()} actions:{Button("撤销上次评分"){
+                if let id=lastReviewed,let item=practice.items.first(where:{$0.id==id}) {practice.undo(item);if practice.issue==nil {currentID=id;reveal=true;finished=false;lastReviewed=nil}}
+            }}
+        } else if let item=practice.items.first(where:{$0.id==currentID}) {
+            VStack(spacing:16) {
+                MarkdownContentView(markdown:reveal ? (item.answer.isEmpty ? "暂无参考答案，请回到原题补充讲解。":item.answer):item.question).id(currentID.uuidString+(reveal ? "-answer":"-question"))
+                if reveal {
+                    HStack(spacing:12){ForEach(ReviewConfidence.allCases){choice in
+                        Button(choice.title){
+                            practice.grade(item,choice.rawValue)
+                            if practice.issue==nil {
+                                lastReviewed=item.id;reveal=false
+                                if let next=practice.items.filter({$0.scheduled && $0.card.due<=Date() && $0.id != item.id}).sorted(by:{$0.card.due<$1.card.due}).first {currentID=next.id}else{finished=true}
+                            }
+                        }.buttonStyle(.borderedProminent).tint(choice == .forgotten ? .red:choice == .uncertain ? .orange:.teal).frame(maxWidth:.infinity).controlSize(.large).disabled(item.answer.isEmpty)
+                    }}.padding(.horizontal)
+                } else {Button("显示答案"){reveal=true}.buttonStyle(.borderedProminent).controlSize(.large).padding(.bottom)}
+                if let issue=practice.issue {Text(issue).foregroundStyle(.red)}
+            }.navigationTitle(item.title).navigationBarTitleDisplayMode(.inline)
+            .toolbar {ToolbarItem(placement:.primaryAction){Menu {
+                if reveal {Button("回看题目"){reveal=false}}
                 Toggle("收藏",isOn:Binding(get:{item.favorite},set:{value in practice.update(item){$0.favorite=value}}))
                 Toggle("错题",isOn:Binding(get:{item.mistake},set:{value in practice.update(item){$0.mistake=value}}))
                 Toggle("安排复习",isOn:Binding(get:{item.scheduled},set:{value in practice.update(item){$0.scheduled=value}}))
-                Button("撤销上次评分"){practice.undo(item)}.disabled(item.reviews.isEmpty)
-            }.padding(.horizontal).navigationTitle(item.title).navigationBarTitleDisplayMode(.inline)
+                Button("撤销上次评分"){
+                    if let id=lastReviewed,let previous=practice.items.first(where:{$0.id==id}) {practice.undo(previous);if practice.issue==nil {currentID=id;lastReviewed=nil;reveal=true}}
+                }.disabled(lastReviewed==nil)
+            }label:{Image(systemName:"ellipsis.circle")}}}
         }
     }
 }

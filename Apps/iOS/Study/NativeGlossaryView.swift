@@ -54,7 +54,7 @@ struct NativeGlossaryView:View {
                     ForEach(terms){term in
                         NavigationLink(value:term){VStack(alignment:.leading,spacing:5){Text(term.term).foregroundStyle(.primary);Text(term.subject).font(.caption).foregroundStyle(.secondary)}}
                     }
-                } footer:{Text("点击术语查看定义、例子和相关笔记。自动标注可在设置的阅读辅助中调整。")}
+                } footer:{Text("当前课程提供 \(presentation.catalog.terms.count) 个术语。点击查看定义、例子和相关笔记。标注可在设置的阅读辅助中调整。")}
             }
             .overlay{if terms.isEmpty {ContentUnavailableView.search(text:query)}}
             .searchable(text:$query,prompt:"搜索术语、别名或释义")
@@ -76,7 +76,7 @@ struct NativeTermDetail:View {
     let onClose:()->Void
     let onOpen:(ReaderDocumentTarget)->Void
     @EnvironmentObject private var practice:PracticeWorkspace
-    @State private var expanded=false
+    @State private var expanded=true
     @State private var height:Double=280
     @State private var renderingIssue:String?
     private var saved:Bool {practice.items.contains{$0.source?.courseID==courseID && $0.source?.path==term.id && $0.kind=="knowledge" && $0.scheduled}}
@@ -102,7 +102,7 @@ struct NativeTermDetail:View {
                 }
                 Button(saved ? "已加入复习":"加入知识点复习",systemImage:saved ? "checkmark.circle":"calendar.badge.plus") {
                     practice.captureKnowledge(id:term.id,title:term.term,body:term.body,courseID:courseID)
-                }.buttonStyle(.borderedProminent).controlSize(.large).disabled(saved)
+                }.buttonStyle(.borderedProminent).controlSize(.small).disabled(saved)
                 if let issue=practice.issue {Text(issue).foregroundStyle(.red)}
             }.padding()
         }.navigationTitle(term.term).navigationBarTitleDisplayMode(.inline)

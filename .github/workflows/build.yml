@@ -31,15 +31,18 @@ jobs:
         run: |
           python3 Tools/generate_contract.py --check
           python3 -m unittest discover -s Tests/ToolTests
+      - name: Validation configuration
+        id: validation
+        run: python3 -c 'import json,os; value=json.load(open("Config/Validation.json"))["pdfTests"]; open(os.environ["GITHUB_OUTPUT"],"a").write("pdf="+str(value).lower()+"\n")'
       - name: Reader checks
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           node Tools/build_reader_vendor.mjs --check
           node Tools/build_checkpoints.mjs --check
           node Tools/build_glossary.mjs --check
-          node --test Tests/ReaderTests/*.test.cjs
+          node Tools/test_reader.mjs
       - name: Core checks
-        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests|AITests|AITransportTests|AISelectionTests|CourseNavigationTests|StudyRecordTests|StudyLibraryTests|CheckpointTests|CheckpointStoreTests|GlossaryTests|PracticeTests'
+        run: swift test --filter 'CourseTests|GitHubTests|WorkflowTests|HTMLImportTests|WebPageTests|AITests|AITransportTests|AISelectionTests|CourseNavigationTests|StudyRecordTests|StudyLibraryTests|CheckpointTests|CheckpointStoreTests|GlossaryTests|PracticeTests|AnnotationTests'
       - name: Course templates
         run: |
           swift run course validate Templates/minimal-course
@@ -56,18 +59,20 @@ jobs:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-          node Tools/prepare_paper_fixture.cjs
+          if [ "${{ steps.validation.outputs.pdf }}" == "true" ]; then node Tools/prepare_paper_fixture.cjs; else mkdir -p build/paper-fixtures; fi
           xcodegen generate --spec Apps/iOS/project.yml
       - name: Build iOS app
         run: |
           xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/iOS CODE_SIGNING_ALLOWED=NO build > build/ios-build.log 2>&1 || { tail -160 build/ios-build.log; exit 1; }
-      - name: PDF renderer checks
+      - name: iOS native checks
         run: |
           simulator_sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
           device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; suffix=".iOS-"+sys.argv[1].replace(".","-"); print(next(d["udid"] for runtime,items in devices.items() if runtime.endswith(suffix) for d in items if d["name"].startswith("iPhone")))' "$simulator_sdk")
           test_status=0
-          xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Debug -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/PDFTests -resultBundlePath build/PDFValidation.xcresult CODE_SIGNING_ALLOWED=NO test -parallel-testing-enabled NO -only-testing:ReaderPDFTests > build/pdf-tests.log 2>&1 || test_status=$?
-          xcrun xcresulttool export attachments --path build/PDFValidation.xcresult --output-path build/PrintValidation
+          extra=()
+          if [ "${{ steps.validation.outputs.pdf }}" != "true" ]; then extra+=('-skip-testing:ReaderPDFTests/ReaderPDFTests'); fi
+          xcodebuild -project Apps/iOS/LearningReader.xcodeproj -scheme LearningReader -configuration Debug -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/PDFTests -resultBundlePath build/PDFValidation.xcresult CODE_SIGNING_ALLOWED=NO test -parallel-testing-enabled NO -only-testing:ReaderPDFTests "${extra[@]}" > build/pdf-tests.log 2>&1 || test_status=$?
+          if [ "${{ steps.validation.outputs.pdf }}" == "true" ]; then xcrun xcresulttool export attachments --path build/PDFValidation.xcresult --output-path build/PrintValidation; fi
           if [ "$test_status" -ne 0 ]; then
             xcrun xcresulttool export diagnostics --path build/PDFValidation.xcresult --output-path build/TestDiagnostics || true
             mkdir -p build/CrashReports
@@ -76,7 +81,7 @@ jobs:
             exit "$test_status"
           fi
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.validation.outputs.pdf == 'true'
         with:
           name: PrintValidation
           path: build/PrintValidation

@@ -10,6 +10,7 @@ struct AISelectionCommand {
 
 @MainActor
 final class ExplainingWebView: WKWebView {
+    var onMark:((@escaping @MainActor () async throws -> AIMaterial,Bool)->Void)?
     var onAction: ((AISelectionCommand) -> Void)?
     var actions: [AISelectionAction] = [.explain]
     var courseSelection = false
@@ -41,7 +42,17 @@ final class ExplainingWebView: WKWebView {
                 self.onAction?(command)
             }
         }
-        if !items.isEmpty { builder.insertChild(UIMenu(options:.displayInline,children:items),atStartOfMenu:.root) }
+        var menuItems:[UIMenuElement]=[]
+        if courseSelection,onMark != nil {
+            for (title,note) in [("添加笔记",true),("高亮",false)] {
+                menuItems.append(UIAction(title:title,image:UIImage(systemName:note ? "note.text":"highlighter")){[weak self] _ in
+                    guard let self else {return}
+                    self.onMark?({[weak self] in guard let self else {throw AISelectionError.documentChanged};return try await self.selectedMaterial(expectedURL:expectedURL)},note)
+                })
+            }
+        }
+        menuItems.append(contentsOf:items)
+        if !menuItems.isEmpty { builder.insertChild(UIMenu(options:.displayInline,children:menuItems),atStartOfMenu:.root) }
     }
 
     private func selectedMaterial(expectedURL:URL?) async throws -> AIMaterial {
@@ -59,6 +70,8 @@ final class ExplainingWebView: WKWebView {
         let identity=try await readerJavaScript(check,world:world)
         guard window != nil, url == expectedURL, identity as? String == documentID else { throw AISelectionError.documentChanged }
         let source=StudySource(courseID:data["courseID"] ?? "",kind:data["kind"] ?? "web",path:data["path"] ?? expectedURL?.absoluteString ?? "",anchor:data["anchor"] ?? "",fingerprint:StudySource.hash(document))
-        return AIMaterial(title:data["title"] ?? "阅读内容",text:text,document:document,question:data["question"],source:source)
+        var material=AIMaterial(title:data["title"] ?? "阅读内容",text:text,document:document,question:data["question"],source:source)
+        material.selectionPrefix=data["prefix"] ?? "";material.selectionSuffix=data["suffix"] ?? ""
+        return material
     }
 }

@@ -150,7 +150,7 @@ async function renderMarkdown(md, anchor = "", snapshot = null) {
     const button=document.createElement('button');button.type='button';button.className='study-open text-btn';button.textContent='对照';
     button.onclick=()=>openReferenceStudy(button,item.id);
     const actions=document.createElement('span');actions.className='question-actions';actions.dataset.copyIgnore='true';
-    const copy=target.querySelector(':scope > .question-copy');actions.append(button);if(copy)actions.append(copy);
+    const copy=target.querySelector(':scope > .question-copy');actions.append(button);if(copy){copy.textContent='复制';actions.append(copy);}
     target.prepend(actions);
   }
   ReaderCodeBlocks.enhance($("article"));
@@ -1201,5 +1201,5 @@ function refreshAnnotations(){
  if(!active||!window.ReaderAnnotations)return;
  const article=document.getElementById('article');
  const records=(window.ReaderSavedAnnotations||[]).filter(x=>x.path===active.path&&x.kind===active.kind);
- ReaderAnnotations.mount(article,records,ids=>window.webkit?.messageHandlers?.mathReader?.postMessage({type:'annotation',ids}));
+ return ReaderAnnotations.mount(article,records,ids=>window.webkit?.messageHandlers?.mathReader?.postMessage({type:'annotation',ids}));
 }

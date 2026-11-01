@@ -46,3 +46,10 @@ final class PracticeTests:XCTestCase {
         XCTAssertTrue(try XCTUnwrap(restored.items.first).favorite)
     }
 }
+
+extension PracticeTests {
+    func testThreeReviewChoicesRetainExistingSchedulerGrades() {
+        XCTAssertEqual(ReviewConfidence.allCases.map(\.rawValue),[1,2,3])
+        XCTAssertEqual(ReviewConfidence.allCases.map(\.title),["不会","模糊","掌握"])
+    }
+}

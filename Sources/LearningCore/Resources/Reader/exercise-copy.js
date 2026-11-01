@@ -124,7 +124,7 @@
     button.textContent = text;
     button.dataset.state = state;
     view.setTimeout(() => {
-      button.textContent = "⧉";
+      button.textContent = button.closest(".question-actions") ? "复制":"⧉";
       delete button.dataset.state;
     }, 1400);
   }
