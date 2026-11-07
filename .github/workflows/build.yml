@@ -58,6 +58,7 @@ jobs:
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           if [ "${{ steps.validation.outputs.pdf }}" == "true" ]; then node Tools/prepare_paper_fixture.cjs; else mkdir -p build/paper-fixtures; fi
+          python3 Tools/build.py ios-icons
           xcodegen generate --spec Apps/iOS/project.yml
       - name: Build iOS app
         run: |

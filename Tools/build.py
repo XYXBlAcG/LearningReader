@@ -14,7 +14,7 @@ def run(*command):
     subprocess.run(command, cwd=ROOT, check=True)
 
 
-def icons():
+def ios_icons():
     output = ROOT / 'Apps/iOS/Assets.xcassets/AppIcon.appiconset'
     output.mkdir(parents=True, exist_ok=True)
     run('sips', '-z', '1024', '1024', str(ROOT / 'Assets/iOS-AppIcon-master.png'), '--out', str(output / 'AppIcon.png'))
@@ -23,6 +23,9 @@ def icons():
     shutil.copyfile(output / 'AppIcon.png', about / 'icon.png')
     (about / 'Contents.json').write_text(json.dumps({'images': [{'filename': 'icon.png', 'idiom': 'universal'}], 'info': {'author': 'xcode', 'version': 1}}))
     (output / 'Contents.json').write_text(json.dumps({'images': [{'filename': 'AppIcon.png', 'idiom': 'universal', 'platform': 'ios', 'size': '1024x1024'}], 'info': {'author': 'xcode', 'version': 1}}, indent=2) + '\n')
+
+
+def macos_icons():
     iconset = ROOT / 'build/AppIcon.iconset'
     iconset.mkdir(parents=True, exist_ok=True)
     for size in [16, 32, 128, 256, 512]:
@@ -69,8 +72,10 @@ def macos():
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('target', choices=['icons', 'macos'])
+parser.add_argument('target', choices=['icons', 'ios-icons', 'macos'])
 args = parser.parse_args()
-icons()
+ios_icons()
+if args.target != 'ios-icons':
+    macos_icons()
 if args.target == 'macos':
     macos()
