@@ -4,12 +4,18 @@ struct AppSettingsView: View {
     @ObservedObject var model: ReaderModel
     @ObservedObject var reader:ReaderController
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("learningBar") private var bar=LearningBarPreference.visible
+    @AppStorage("outlineDoubleTap") private var doubleTap=false
     @State private var github = false
     @State private var ai = false
     var body: some View {
         NavigationStack {
             Form {
                 Section("外观") { AppearancePicker() }
+                Section("导航") {
+                    Picker("底栏",selection:$bar){ForEach(LearningBarPreference.allCases){value in Text(value.title).tag(value)}}
+                    Toggle("双击页边空白打开本页目录",isOn:$doubleTap)
+                }
                 Section("课程同步") { Button("GitHub 登录与设置") { github = true } }
                 Section("学习") {NavigationLink("复习与提醒"){PracticeSettingsView()}}
                 Section {

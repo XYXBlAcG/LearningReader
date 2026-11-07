@@ -16,6 +16,8 @@ final class ReaderController: ObservableObject {
     @Published var state: ReaderWebState?
     weak var webView: WKWebView?
     #if os(iOS)
+    var onOutlineGesture:(()->Void)?
+    var marginDoubleTapEnabled=false {didSet{(webView as? ExplainingWebView)?.marginDoubleTapEnabled=marginDoubleTapEnabled}}
     var loadedSourceID:String?
     var pendingOpen:(String,ReaderDocumentTarget)?
     var annotationData:(()->[[String:String]])?
@@ -90,6 +92,8 @@ struct ReaderSurface: PlatformReaderView {
         let web = ExplainingWebView(frame: .zero, configuration: configuration)
         controller.loadedSourceID=sourceID
         web.courseSelection = true
+        web.marginDoubleTapEnabled=controller.marginDoubleTapEnabled
+        web.onOutlineGesture={ [weak controller] in controller?.onOutlineGesture?()}
         web.onMark={ [weak controller] load,note in controller?.onMark?(load,note)}
         web.actions=controller.selectionActions
         web.onAction = { [weak controller] command in

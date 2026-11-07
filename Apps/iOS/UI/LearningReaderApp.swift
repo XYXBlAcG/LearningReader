@@ -24,6 +24,12 @@ struct LearningReaderApp: App {
 struct LearningView: View {
     @ObservedObject var model: ReaderModel
     @StateObject private var reader = ReaderController()
+    @StateObject private var journal=LearningJournal()
+    @State private var tab=LearningTab.home
+    @State private var reviewID:UUID?
+    @State private var chapterSource:LearningLocation?
+    @AppStorage("learningBar") private var bar=LearningBarPreference.visible
+    @AppStorage("outlineDoubleTap") private var outlineDoubleTap=false
     @StateObject private var update=UpdateStatus()
     @StateObject private var interaction = AIInteraction()
     @EnvironmentObject private var ai: AIWorkspace
@@ -43,16 +49,34 @@ struct LearningView: View {
     @State private var exportPaper=false
     @State private var reference:ReferenceStudy?
     @State private var tools = false
-    @State private var columns:NavigationSplitViewVisibility = .automatic
-    @State private var compactColumn:NavigationSplitViewColumn = .detail
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body:some View {
-        NavigationSplitView(columnVisibility:$columns,preferredCompactColumn:$compactColumn) {
-            courseSidebar
-        } detail:{ readerDetail }
+        readerDetail
         .tint(Color(red:0.06,green:0.59,blue:0.46))
         .modifier(AIHost(interaction:interaction))
+        .onChange(of:currentLocation){_,_ in
+            if let location=currentLocation {journal.record(location)}
+        }
+        .onChange(of:outlineDoubleTap){_,value in reader.marginDoubleTapEnabled=value}
+    }
+    private var rootTabs:some View {
+        TabView(selection:$tab){
+            NavigationStack{LearningHomeView(model:model,reader:reader,journal:journal,onContinue:{reviewID=nil;tab = .study},onReview:startReview,onOpen:openLocation,onSettings:{settings=true},onCourses:{tab = .catalog}).toolbar{navigationMenu}}.tabItem{Label("主界面",systemImage:"house")}.tag(LearningTab.home)
+            NavigationStack{courseSidebar.toolbar{navigationMenu}}.tabItem{Label("目录",systemImage:"list.bullet")}.tag(LearningTab.catalog)
+            NavigationStack{
+                ZStack {
+                    readerContent.opacity(reviewID==nil ? 1:0).allowsHitTesting(reviewID==nil).accessibilityHidden(reviewID != nil)
+                    if let reviewID {PracticeDetailView(id:reviewID).toolbar{ToolbarItem(placement:.topBarLeading){Button("回到正文"){self.reviewID=nil}};navigationMenu}}
+                }
+            }.tabItem{Label("学习",systemImage:"book")}.tag(LearningTab.study)
+        }.toolbar(bar.hides(tab) ? .hidden:.visible,for:.tabBar)
+    }
+    @ToolbarContentBuilder private var navigationMenu:some ToolbarContent {
+        ToolbarItem(placement:.topBarTrailing){Menu{
+            ForEach(LearningTab.allCases){page in Button(page.title,systemImage:page.symbol){tab=page}}
+            Button("设置",systemImage:"gearshape"){settings=true}
+        }label:{Image(systemName:"ellipsis.circle")}.accessibilityLabel("页面与设置")}
     }
     @ViewBuilder private var courseSidebar:some View {
         if let snapshot=model.snapshot {
@@ -66,7 +90,9 @@ struct LearningView: View {
         }
     }
     @ViewBuilder private var readerMenu:some View {
-        Button("搜索", systemImage: "magnifyingglass") { compactColumn = .sidebar;columns = .all }
+        Section("页面"){ForEach(LearningTab.allCases){page in Button(page.title,systemImage:page.symbol){tab=page}}}
+        Button("加入章节回顾",systemImage:"calendar.badge.plus"){chapterSource=currentLocation}.disabled(currentLocation==nil)
+        Button("搜索", systemImage: "magnifyingglass") { tab = .catalog }
         Button("前进", systemImage: "chevron.right") { reader.send("forward") }.disabled(reader.state?.canForward != true)
         Button("历史记录", systemImage: "clock") { history = true }
         Button("课程术语库",systemImage:"text.book.closed") {reader.send("glossary")}.disabled(reader.state?.hasDocument != true)
@@ -110,16 +136,18 @@ struct LearningView: View {
         .navigationTitle(reader.state?.title ?? model.selected?.title ?? "知序")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement:.topBarLeading) {
-                Button { reader.send("back") } label: { Image(systemName:"arrow.uturn.backward") }
-                    .disabled(reader.state?.canBack != true).accessibilityLabel("返回原文")
-            }
-            ToolbarItem(placement:.topBarTrailing) {
-                Button { tools.toggle() } label: { Image(systemName:"sidebar.right") }
-                    .accessibilityLabel("本页目录与知识关联")
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Menu { readerMenu } label: { Image(systemName: "ellipsis.circle") }.help("阅读与同步设置")
+            if reviewID==nil {
+                ToolbarItem(placement:.topBarLeading) {
+                    Button { reader.send("back") } label: { Image(systemName:"arrow.uturn.backward") }
+                        .disabled(reader.state?.canBack != true).accessibilityLabel("返回原文")
+                }
+                ToolbarItem(placement:.topBarTrailing) {
+                    Button { tools.toggle() } label: { Image(systemName:"sidebar.right") }
+                        .accessibilityLabel("本页目录与知识关联")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu { readerMenu } label: { Image(systemName: "ellipsis.circle") }.help("阅读与同步设置")
+                }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -135,7 +163,7 @@ struct LearningView: View {
         }
     }
     private var studyPresentations:some View {
-        readerContent
+        rootTabs
             .fullScreenCover(item:$reference){ReferenceStudyView(study:$0).environment(\.courseGlossary,courseGlossary)}
             .sheet(item:$glossaryPresentation){presentation in NativeGlossaryView(presentation:presentation,onOpen:open)}
             .sheet(isPresented:$exportPaper){ExerciseExportView(reader:reader)}
@@ -155,6 +183,7 @@ struct LearningView: View {
     private var readerDetail:some View {
         personalPresentations
             .sheet(isPresented:$about){AboutView()}
+            .sheet(item:$chapterSource){source in ChapterReviewEditor(source:source,journal:journal,onRead:{openLocation(source)})}
             .sheet(isPresented: $settings) { AppSettingsView(model: model,reader:reader) }
             .sheet(isPresented: $history) { ReadingHistoryView(reader: reader) }
             .alert("知序", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) {
@@ -162,6 +191,9 @@ struct LearningView: View {
             } message: { Text(model.issue ?? "") }
             .alert("软件更新",isPresented:Binding(get:{update.url != nil},set:{if !$0 {update.url=nil}})){if let url=update.url {Link("下载新版本",destination:url)};Button("稍后",role:.cancel){update.url=nil}}message:{Text(update.message)}
             .task {
+                reader.onOutlineGesture={tools=true}
+                reader.marginDoubleTapEnabled=outlineDoubleTap
+                ai.practice.onOpenQuestion=startReview
                 ai.study.onOpenSource={source in
                     reference=nil;localStudies=false
                     Task {
@@ -173,8 +205,8 @@ struct LearningView: View {
                         }
                         let target=ReaderDocumentTarget(kind:kind,path:source.path,anchor:anchor)
                         reader.pendingOpen=(course.id,target)
-                        if reader.loadedSourceID==course.id && reader.state?.hasDocument==true {reader.open(target);reader.pendingOpen=nil}
-                        compactColumn = .detail
+                        if reader.webView != nil,reader.loadedSourceID==course.id && reader.state?.hasDocument==true {reader.open(target);reader.pendingOpen=nil}
+                        reviewID=nil;tab = .study
                     }
                 }
                 reader.onReference={items,document,selectedID in
@@ -218,6 +250,22 @@ struct LearningView: View {
             .onChange(of: model.library.selectedID) { _ in reader.state = nil }
             .onChange(of: scenePhase) { value in if value == .active { ai.practice.refresh();model.sync(automatic: true);Task{await update.check(automatic:true)} } else {ai.study.flush()} }
     }
+    private var currentLocation:LearningLocation? {
+        guard let course=model.selected,let state=reader.state,state.hasDocument,let kind=state.documentKind,kind=="note" || kind=="exercise" else{return nil}
+        return LearningLocation(course:course,kind:kind,path:state.path,title:state.title)
+    }
+    private func startReview(_ id:UUID){tools=false;reviewID=id;tab = .study}
+    private func openLocation(_ source:LearningLocation){
+        guard let course=model.library.sources.first(where:{$0.id==source.courseID || LearningLocation(course:$0,kind:source.kind,path:source.path,title:source.title).courseKey==source.courseKey}),let kind=DocumentKind(rawValue:source.kind) else{model.issue="原课程已移除，请重新添加对应课程。";return}
+        Task{@MainActor in
+            if model.selected?.id != course.id {await model.select(course)}
+            guard model.selected?.id==course.id,model.snapshot?.course.documents.contains(where:{$0.kind==kind && $0.path==source.path})==true else{model.issue="原章节已移动或不在当前课程中，请从目录重新选择。";return}
+            let target=ReaderDocumentTarget(kind:kind,path:source.path)
+            reader.pendingOpen=(course.id,target)
+            if reader.webView != nil,reader.loadedSourceID==course.id && reader.state?.hasDocument==true {reader.open(target);reader.pendingOpen=nil}
+            reviewID=nil;tab = .study
+        }
+    }
     private func openMark(_ value:String){
         guard let id=UUID(uuidString:value) else {return}
         if let item=ai.annotations.items.first(where:{$0.id==id && $0.source.courseID==model.selected?.id}){personalAnnotation=item}
@@ -231,8 +279,9 @@ struct LearningView: View {
         }
     }
     private func open(_ target:ReaderDocumentTarget) {
-        reader.open(target)
-        compactColumn = .detail
+        reviewID=nil;tab = .study
+        if let course=model.selected {reader.pendingOpen=(course.id,target)}
+        if reader.webView != nil,reader.loadedSourceID==model.selected?.id,reader.state?.hasDocument==true {reader.open(target);reader.pendingOpen=nil}
         if sizeClass == .compact { tools=false }
     }
 

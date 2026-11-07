@@ -7,6 +7,7 @@ import UserNotifications
 @MainActor
 final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenterDelegate {
     var onOpen:(()->Void)?
+    var onOpenQuestion:((UUID)->Void)?
     private var notificationTask:Task<Void,Never>?
     @Published private(set) var items:[PracticeItem]=[]
     @Published private(set) var settings=PracticeSettings()
@@ -41,7 +42,7 @@ final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenter
         }
     }
     nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping()->Void) {
-        if response.notification.request.content.userInfo["practice"] as? Bool == true {Task{@MainActor in self.onOpen?()}}
+        if response.notification.request.content.userInfo["practice"] as? Bool == true {Task{@MainActor in if let value=response.notification.request.content.userInfo["questionID"] as? String,let id=UUID(uuidString:value),self.items.contains(where:{$0.id==id}) {self.onOpenQuestion?(id)}else{self.onOpen?()}}}
         completionHandler()
     }
     func refresh(){reschedule()}
@@ -95,11 +96,11 @@ final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenter
             let calendar=Calendar.current,now=Date()
             for offset in 0..<14 {
                 guard let day=calendar.date(byAdding:.day,value:offset,to:now),let time=calendar.date(bySettingHour:settings.hour,minute:settings.minute,second:0,of:day),time>now else {continue}
-                let due=items.filter{$0.scheduled && $0.card.due<=time}
+                let due=items.filter{$0.scheduled && $0.card.due<=time}.sorted{$0.card.due<$1.card.due}
                 guard !due.isEmpty else {continue}
                 let content=UNMutableNotificationContent();content.title="今日复习";content.sound = .default
-                content.body=settings.preview ? String(due[0].question.prefix(100)) : "有待复习的题目与知识点，打开知序开始回忆。"
-                content.userInfo=["practice":true]
+                content.body=settings.preview ? String(NotificationPreview.text(due[0].question).prefix(100)) : "有待复习的题目与知识点，打开知序开始回忆。"
+                content.userInfo=["practice":true,"questionID":due[0].id.uuidString]
                 let trigger=UNCalendarNotificationTrigger(dateMatching:calendar.dateComponents([.year,.month,.day,.hour,.minute],from:time),repeats:false)
                 let identifier="practice-"+generation+"-\(offset)"
                 guard !Task.isCancelled else {return}
