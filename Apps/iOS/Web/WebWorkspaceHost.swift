@@ -5,9 +5,9 @@ struct WebWorkspaceHost: ViewModifier {
     @ObservedObject var model: WebWorkspaceModel
     func body(content: Content) -> some View {
         content
-            .fileImporter(isPresented: Binding(get: { model.picker != nil }, set: { if !$0 { model.picker = nil } }), allowedContentTypes: model.picker == .folder ? [.folder] : [.html]) { result in
+            .fileImporter(isPresented: Binding(get: { model.picker != nil }, set: { if !$0 { model.picker = nil } }), allowedContentTypes: model.picker == .folder ? [.folder] : [.html], allowsMultipleSelection: model.picker != .folder) { result in
                 switch result {
-                case .success(let url): model.importFile(url)
+                case .success(let urls): model.importFiles(urls)
                 case .failure(let error):
                     if (error as NSError).code != NSUserCancelledError { model.issue = "选择 HTML 文件\n" + error.localizedDescription }
                 }

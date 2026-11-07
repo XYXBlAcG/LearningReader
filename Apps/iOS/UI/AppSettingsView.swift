@@ -9,6 +9,7 @@ struct AppSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("外观") { AppearancePicker() }
                 Section("课程同步") { Button("GitHub 登录与设置") { github = true } }
                 Section("学习") {NavigationLink("复习与提醒"){PracticeSettingsView()}}
                 Section {

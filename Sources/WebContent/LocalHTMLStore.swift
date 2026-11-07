@@ -4,7 +4,8 @@ public struct HTMLDocument: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public let entry: String
     public var openedAt: Date
-    public var name: String { URL(fileURLWithPath: entry).lastPathComponent }
+    public var title: String?
+    public var name: String { title ?? URL(fileURLWithPath: entry).lastPathComponent }
 }
 
 public struct HTMLImportDraft: Identifiable, Sendable {
@@ -29,14 +30,48 @@ public enum LocalHTMLError: LocalizedError {
 public struct LocalHTMLStore: Sendable {
     public let directory: URL
     private var recordURL: URL { directory.appendingPathComponent("recent.json") }
+    private var libraryURL: URL { directory.appendingPathComponent("documents.json") }
 
     public init(directory: URL) { self.directory = directory.standardizedFileURL.resolvingSymlinksInPath() }
 
     public func recent() throws -> HTMLDocument? {
-        guard FileManager.default.fileExists(atPath: recordURL.path) else { return nil }
-        let document = try JSONDecoder().decode(HTMLDocument.self, from: Data(contentsOf: recordURL))
-        _ = try fileURL(for: document)
-        return document
+        try documents().first
+    }
+
+    public func documents() throws -> [HTMLDocument] {
+        if FileManager.default.fileExists(atPath: libraryURL.path) {
+            return try JSONDecoder().decode([HTMLDocument].self, from: Data(contentsOf: libraryURL)).sorted { $0.openedAt > $1.openedAt }
+        }
+        guard FileManager.default.fileExists(atPath: recordURL.path) else { return [] }
+        let old = try JSONDecoder().decode(HTMLDocument.self, from: Data(contentsOf: recordURL))
+        _ = try fileURL(for: old)
+        try save([old])
+        return [old]
+    }
+
+    private func save(_ documents: [HTMLDocument]) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try JSONEncoder().encode(documents).write(to: libraryURL, options: .atomic)
+    }
+
+    public func rename(_ document: HTMLDocument, title: String) throws {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { throw LocalHTMLError.invalidFile }
+        var all = try documents()
+        guard let index = all.firstIndex(where: { $0.id == document.id }) else { throw LocalHTMLError.unavailable }
+        all[index].title = title
+        try save(all)
+    }
+
+    public func remove(_ document: HTMLDocument) throws {
+        let all = try documents()
+        guard all.contains(where: { $0.id == document.id }) else { throw LocalHTMLError.unavailable }
+        let source = rootURL(for: document).deletingLastPathComponent()
+        let trash = directory.appendingPathComponent(".removed-" + document.id.uuidString)
+        try FileManager.default.moveItem(at: source, to: trash)
+        do { try save(all.filter { $0.id != document.id }) }
+        catch { try FileManager.default.moveItem(at: trash, to: source); throw error }
+        try? FileManager.default.removeItem(at: trash)
     }
 
     public func prepare(source: URL) throws -> HTMLImportDraft {
@@ -87,29 +122,31 @@ public struct LocalHTMLStore: Sendable {
     public func accept(_ draft: HTMLImportDraft, entry: String) throws -> HTMLDocument {
         let staging = try stagingDirectory(for: draft)
         guard draft.entries.contains(entry), Self.valid(entry) else { throw LocalHTMLError.invalidDraft("所选入口不属于当前导入：" + entry) }
-        let previous = try recent()
+        let previous = try documents()
         let document = HTMLDocument(id: draft.id, entry: entry, openedAt: Date())
         let destination = rootURL(for: document).deletingLastPathComponent()
         try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         try FileManager.default.moveItem(at: staging, to: destination)
         do {
             _ = try fileURL(for: document)
-            try JSONEncoder().encode(document).write(to: recordURL, options: .atomic)
+            try save(previous + [document])
         } catch {
             let original = error
             do { try FileManager.default.moveItem(at: destination, to: staging) }
             catch { throw LocalHTMLError.invalidDraft("恢复暂存目录失败。\n" + original.localizedDescription + "\n" + error.localizedDescription) }
             throw original
         }
-        if let previous { try? FileManager.default.removeItem(at: rootURL(for: previous).deletingLastPathComponent()) }
         return document
     }
 
     public func markOpened(_ document: HTMLDocument) throws -> HTMLDocument {
-        guard try recent()?.id == document.id else { throw LocalHTMLError.invalidDraft("最近阅读记录与当前文件不一致。") }
-        var updated = document
+        var all = try documents()
+        guard let index = all.firstIndex(where: { $0.id == document.id }) else { throw LocalHTMLError.unavailable }
+        _ = try fileURL(for: all[index])
+        var updated = all[index]
         updated.openedAt = Date()
-        try JSONEncoder().encode(updated).write(to: recordURL, options: .atomic)
+        all[index] = updated
+        try save(all)
         return updated
     }
 
@@ -119,8 +156,7 @@ public struct LocalHTMLStore: Sendable {
 
     public func clear() throws {
         guard let document = try recent() else { return }
-        try FileManager.default.removeItem(at: recordURL)
-        try FileManager.default.removeItem(at: rootURL(for: document).deletingLastPathComponent())
+        try remove(document)
     }
 
     public func rootURL(for document: HTMLDocument) -> URL {

@@ -6,6 +6,7 @@ public struct PracticeReview:Codable,Sendable {
     public var date:Date
     public var grade:Int
     public var previous:Card
+    public var evidence:ReviewEvidence?
 }
 public struct PracticeItem:Codable,Identifiable,Sendable {
     public var id=UUID()
@@ -33,11 +34,38 @@ public struct PracticeSettings:Codable,Sendable {
     public init() {}
 }
 public final class PracticeStore {
-    private struct Archive:Codable {var version=1;var items:[PracticeItem]=[];var settings=PracticeSettings()}
+    private struct Archive:Codable {var version=1;var items:[PracticeItem]=[];var settings=PracticeSettings();var session:ReviewSession?}
     private var archive:Archive
     private let url:URL
     public var items:[PracticeItem] {archive.items}
     public var settings:PracticeSettings {archive.settings}
+    public var session:ReviewSession? {archive.session}
+
+    public func startSession(ids: [UUID]) throws {
+        guard !ids.isEmpty, Set(ids).count == ids.count, ids.allSatisfy({ id in items.contains { $0.id == id } }) else { throw CocoaError(.fileReadCorruptFile) }
+        var next = archive
+        next.session = ReviewSession(ids: ids)
+        try save(next)
+    }
+
+    public func revealSession(_ revealed: Bool) throws {
+        var next = archive
+        next.session?.revealed = revealed
+        try save(next)
+    }
+
+    public func saveEvidence(_ evidence: ReviewEvidence) throws {
+        try evidence.validate()
+        var next = archive
+        next.session?.evidence = evidence
+        try save(next)
+    }
+
+    public func deferCurrent() throws {
+        var next = archive
+        if next.session?.current != nil { next.session?.position += 1; next.session?.revealed = false; next.session?.evidence = nil }
+        try save(next)
+    }
     public init(url:URL) throws {
         self.url=url
         archive=FileManager.default.fileExists(atPath:url.path) ? try JSONDecoder().decode(Archive.self,from:Data(contentsOf:url)) : Archive()
@@ -58,15 +86,38 @@ public final class PracticeStore {
         guard (0.7...0.99).contains(settings.retention),(1...100).contains(settings.dailyLimit),(0...23).contains(settings.hour),(0...59).contains(settings.minute) else {throw CocoaError(.fileReadCorruptFile)}
         var next=archive;next.settings=settings;try save(next)
     }
-    public func review(_ id:UUID,grade:Int,now:Date) throws {
+    public func review(_ id:UUID,grade:Int,now:Date,evidence:ReviewEvidence? = nil) throws {
+        try evidence?.validate()
+        if let session, session.ids.contains(id), session.current != id { throw CocoaError(.fileReadCorruptFile) }
         guard let rating=Rating(rawValue:grade),rating != .manual else {throw CocoaError(.fileReadCorruptFile)}
         let scheduler=FSRS(parameters:.init(requestRetention:settings.retention,w:FSRSDefaults.defaultWv6))
         guard let item=items.first(where:{$0.id==id}) else {throw CocoaError(.fileNoSuchFile)}
-        let next=try scheduler.next(card:item.card,now:now,grade:rating).card
-        try update(id){$0.reviews.append(.init(date:now,grade:grade,previous:$0.card));$0.card=next}
+        let card=try scheduler.next(card:item.card,now:now,grade:rating).card
+        var next = archive
+        guard let index = next.items.firstIndex(where: { $0.id == id }) else { throw CocoaError(.fileNoSuchFile) }
+        next.items[index].reviews.append(.init(date:now,grade:grade,previous:item.card,evidence:evidence))
+        next.items[index].card = card
+        if next.session?.current == id {
+            next.session?.position += 1
+            next.session?.revealed = false
+            next.session?.lastGraded = id
+            next.session?.evidence = nil
+        }
+        try save(next)
     }
 
-    public func undoReview(_ id:UUID) throws {try update(id){if let previous=$0.reviews.popLast() {$0.card=previous.previous}}}
+    public func undoReview(_ id:UUID) throws {
+        var next = archive
+        guard let index = next.items.firstIndex(where: { $0.id == id }), let previous = next.items[index].reviews.popLast() else { return }
+        next.items[index].card = previous.previous
+        if next.session?.lastGraded == id, let position = next.session?.ids.firstIndex(of: id) {
+            next.session?.position = position
+            next.session?.revealed = true
+            next.session?.lastGraded = nil
+            next.session?.evidence = previous.evidence
+        }
+        try save(next)
+    }
     public func due(now:Date)->[PracticeItem] {Array(items.filter{$0.scheduled && $0.card.due<=now}.sorted{$0.card.due<$1.card.due}.prefix(settings.dailyLimit))}
     public func summary(now:Date)->String {
         let formatter=ISO8601DateFormatter()

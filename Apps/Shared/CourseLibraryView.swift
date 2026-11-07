@@ -12,6 +12,7 @@ struct CourseLibraryView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("外观") { AppearancePicker() }
                 ForEach(model.library.sources) { source in
                     HStack {
                         Button {

@@ -7,6 +7,7 @@ import PracticeCore
 struct LearningReaderApp: App {
     @StateObject private var model = ReaderModel()
     @StateObject private var ai = AIWorkspace()
+    @AppStorage("appearance") private var appearance = AppearancePreference.system
     var body: some Scene {
         WindowGroup {
             LearningView(model: model)
@@ -15,7 +16,7 @@ struct LearningReaderApp: App {
                 .environmentObject(ai.practice)
                 .environmentObject(ai.annotations)
                 .frame(minWidth: 320, minHeight: 420)
-                .preferredColorScheme(.light)
+                .preferredColorScheme(appearance.scheme)
         }
     }
 }
@@ -139,7 +140,7 @@ struct LearningView: View {
             .sheet(item:$glossaryPresentation){presentation in NativeGlossaryView(presentation:presentation,onOpen:open)}
             .sheet(isPresented:$exportPaper){ExerciseExportView(reader:reader)}
             .sheet(item:$annotationRecord){record in NavigationStack{SavedStudyView(initial:record,onSource:{source in annotationRecord=nil;ai.study.onOpenSource?(source)})}}
-            .sheet(isPresented:$practiceLibrary){PracticeLibraryView()}
+            .sheet(isPresented:$practiceLibrary){PracticeLibraryView(courseTitles: Dictionary(uniqueKeysWithValues: model.library.sources.map { ($0.id, $0.title) }))}
             .sheet(isPresented:$localStudies){StudyLibraryView(courseID:model.selected?.id)}
     }
     private var personalPresentations:some View {

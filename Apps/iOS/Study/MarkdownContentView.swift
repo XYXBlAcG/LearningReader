@@ -3,6 +3,7 @@ import WebKit
 import LearningCore
 
 struct MarkdownContentView: UIViewRepresentable {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.courseGlossary) private var glossary
     let markdown: String
     var followsOutput=false
@@ -24,14 +25,16 @@ struct MarkdownContentView: UIViewRepresentable {
         web.scrollView.isScrollEnabled=onHeight==nil
         context.coordinator.onIssue = onIssue
         web.isOpaque = true
-        web.backgroundColor = .white
-        web.scrollView.backgroundColor = .white
+        web.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        web.backgroundColor = .systemBackground
+        web.scrollView.backgroundColor = .systemBackground
         web.scrollView.contentInsetAdjustmentBehavior = .never
         context.coordinator.markdown = markdown
         web.loadFileURL(ReaderAssets.reader.appendingPathComponent("ai-answer.html"), allowingReadAccessTo: ReaderAssets.reader)
         return web
     }
     func updateUIView(_ web: WKWebView, context: Context) {
+        web.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
         context.coordinator.onHeight=onHeight
         context.coordinator.onPresentTerm=onPresentTerm
         context.coordinator.onIssue = onIssue

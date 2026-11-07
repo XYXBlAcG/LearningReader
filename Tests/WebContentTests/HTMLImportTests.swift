@@ -52,7 +52,7 @@ final class HTMLImportTests: XCTestCase {
         XCTAssertEqual(try store.recent()?.id, original.id)
     }
 
-    func testReplacementAndClearRemoveOnlyImportedCopies() throws {
+    func testImportsKeepPreviousDocumentsAndClearRemovesOnlyRecentCopy() throws {
         let root = temporary()
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -63,9 +63,9 @@ final class HTMLImportTests: XCTestCase {
         let firstRoot = store.rootURL(for: first)
         let second = try store.accept(store.prepare(source: source), entry: "index.html")
         XCTAssertNotEqual(first.id, second.id)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: firstRoot.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: firstRoot.path))
         try store.clear()
-        XCTAssertNil(try store.recent())
+        XCTAssertEqual(try store.recent()?.id, first.id)
         XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.rootURL(for: second).path))
     }

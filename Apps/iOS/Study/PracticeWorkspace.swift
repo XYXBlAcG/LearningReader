@@ -10,6 +10,7 @@ final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenter
     private var notificationTask:Task<Void,Never>?
     @Published private(set) var items:[PracticeItem]=[]
     @Published private(set) var settings=PracticeSettings()
+    @Published private(set) var session: ReviewSession?
     @Published var issue:String?
     private var store:PracticeStore?
     override init() {
@@ -57,7 +58,16 @@ final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenter
         try store.update(id,change:change)
     }}
     func update(_ item:PracticeItem,change:(inout PracticeItem)->Void){perform{try store?.update(item.id,change:change)}}
-    func grade(_ item:PracticeItem,_ grade:Int){perform{try store?.review(item.id,grade:grade,now:Date())}}
+    func grade(_ item:PracticeItem,_ grade:Int){perform{try store?.review(item.id,grade:grade,now:Date(),evidence:session?.evidence)}}
+    func begin(_ id: UUID, ids: [UUID]? = nil) {
+        guard session?.current != id else { return }
+        let tail = items.filter { $0.scheduled && $0.card.due <= Date() && $0.id != id }.sorted { $0.card.due < $1.card.due }
+        let remaining = (ids ?? tail.map(\.id)).filter { $0 != id }
+        perform { try store?.startSession(ids: Array(([id] + remaining).prefix(settings.dailyLimit))) }
+    }
+    func reveal(_ visible: Bool) { perform { try store?.revealSession(visible) } }
+    func deferCurrent() { perform { try store?.deferCurrent() } }
+    func saveEvidence(_ evidence: ReviewEvidence) { perform { try store?.saveEvidence(evidence) } }
     func undo(_ item:PracticeItem){perform{try store?.undoReview(item.id)}}
     func configure(_ settings:PracticeSettings){perform{try store?.configure(settings)}}
     func summary()->String {store?.summary(now:Date()) ?? "无法读取学习记录"}
@@ -69,7 +79,7 @@ final class PracticeWorkspace:NSObject,ObservableObject,UNUserNotificationCenter
         }catch{issue=error.localizedDescription}
     }
     private func perform(_ operation:() throws->Void){do{guard store != nil else {throw CocoaError(.fileReadUnknown)};try operation();issue=nil;reload();reschedule()}catch{issue=error.localizedDescription}}
-    private func reload(){items=store?.items ?? [];settings=store?.settings ?? PracticeSettings()}
+    private func reload(){items=store?.items ?? [];settings=store?.settings ?? PracticeSettings();session=store?.session}
     private func reschedule(){
         let settings=settings,items=items
         notificationTask?.cancel()

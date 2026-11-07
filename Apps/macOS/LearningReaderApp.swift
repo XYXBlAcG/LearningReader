@@ -25,6 +25,7 @@ final class DesktopPresentation: ObservableObject {
 }
 
 struct DesktopContent: View {
+    @AppStorage("appearance") private var appearance = AppearancePreference.system
     @ObservedObject var model: ReaderModel
     @ObservedObject var reader: ReaderController
     @ObservedObject var presentation: DesktopPresentation
@@ -55,8 +56,14 @@ struct DesktopContent: View {
         .alert("知序", isPresented: Binding(get: { model.issue != nil }, set: { if !$0 { model.issue = nil } })) {
             Button("知道了") { model.issue = nil }
         } message: { Text(model.issue ?? "") }
-        .preferredColorScheme(.light)
+        .preferredColorScheme(appearance.scheme)
+        .onAppear { applyAppearance() }
+        .onChange(of: appearance) { _ in applyAppearance() }
         .tint(Color(red: 0.06, green: 0.59, blue: 0.46))
+    }
+
+    private func applyAppearance() {
+        NSApp.appearance = appearance == .system ? nil : NSAppearance(named: appearance == .dark ? .darkAqua : .aqua)
     }
 }
 

@@ -54,6 +54,7 @@ final class ReaderController: ObservableObject {
 }
 
 struct ReaderSurface: PlatformReaderView {
+    @Environment(\.colorScheme) private var colorScheme
     let snapshot: CourseSnapshot
     let sourceID: String
     let legacy: Bool
@@ -65,11 +66,11 @@ struct ReaderSurface: PlatformReaderView {
 
     #if os(macOS)
     func makeNSView(context: Context) -> WKWebView { makeWebView(context: context) }
-    func updateNSView(_ view: WKWebView, context: Context) { }
+    func updateNSView(_ view: WKWebView, context: Context) { view.appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua) }
     static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator) { dismantle(view) }
     #else
     func makeUIView(context: Context) -> WKWebView { makeWebView(context: context) }
-    func updateUIView(_ view: WKWebView, context: Context) { }
+    func updateUIView(_ view: WKWebView, context: Context) { view.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light }
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) { dismantle(view) }
     #endif
 
@@ -101,10 +102,13 @@ struct ReaderSurface: PlatformReaderView {
         #endif
         web.navigationDelegate = context.coordinator
         #if os(iOS)
+        web.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
         web.isOpaque = false
-        web.backgroundColor = .white
-        web.scrollView.backgroundColor = .white
+        web.backgroundColor = .systemBackground
+        web.scrollView.backgroundColor = .systemBackground
         web.scrollView.contentInsetAdjustmentBehavior = .never
+        #else
+        web.appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
         #endif
         web.allowsBackForwardNavigationGestures = false
         controller.webView = web

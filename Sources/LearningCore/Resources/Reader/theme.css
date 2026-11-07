@@ -15,6 +15,30 @@
   --shadow: 0 12px 32px rgba(0, 0, 0, .12);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #191c20;
+    --bg-side: #171a1e;
+    --card: #23272d;
+    --ink: #e5e8eb;
+    --muted: #a1aab4;
+    --accent: #51cba5;
+    --accent-soft: rgba(81, 203, 165, .12);
+    --accent-underline: rgba(81, 203, 165, .7);
+    --code-bg: #242a31;
+    --code-toolbar-bg: #2b323b;
+    --code-toolbar-ink: #c5cdd7;
+    --line: rgba(255, 255, 255, .13);
+    --shadow: 0 12px 32px rgba(0, 0, 0, .35);
+  }
+  :root .hljs { background: var(--code-bg); color: var(--ink); }
+  :root .hljs-comment, :root .hljs-quote { color: #a1aab4; }
+  :root .hljs-keyword, :root .hljs-selector-tag, :root .hljs-literal { color: #f5a5c8; }
+  :root .hljs-string, :root .hljs-attr { color: #b5d5a2; }
+  :root .hljs-number, :root .hljs-built_in, :root .hljs-title { color: #a9c9ff; }
+}
+
 input[type=range] {
   appearance: none;
   -webkit-appearance: none;
