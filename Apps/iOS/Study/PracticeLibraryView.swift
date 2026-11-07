@@ -66,6 +66,7 @@ struct PracticeDetailView:View {
     @State private var finished=false
     @State private var notes=false
     @State private var evidence = false
+    @State private var editingAnswer = false
     init(id:UUID, queue: [UUID]? = nil){_currentID=State(initialValue:id); self.queue = queue}
     var body:some View {
         if finished {
@@ -101,6 +102,7 @@ struct PracticeDetailView:View {
             }.navigationTitle(item.title).navigationBarTitleDisplayMode(.inline)
             .toolbar {ToolbarItem(placement:.primaryAction){Menu {
                 Button("题目笔记",systemImage:"square.and.pencil"){notes=true}
+                Button("补充或修改参考答案", systemImage: "text.book.closed") { editingAnswer = true }
                 NavigationLink("历史作答") { ReviewHistoryView(item: item) }
                 if reveal {Button("隐藏答案"){practice.reveal(false);if practice.issue == nil {reveal=false}}}
                 Toggle("收藏",isOn:Binding(get:{item.favorite},set:{value in practice.update(item){$0.favorite=value}}))
@@ -112,6 +114,7 @@ struct PracticeDetailView:View {
             }label:{Image(systemName:"ellipsis.circle")}}}
             .sheet(isPresented:$notes){PracticeNoteEditor(item:item)}
             .sheet(isPresented: $evidence) { ReviewEvidenceEditor() }
+            .sheet(isPresented: $editingAnswer) { PracticeAnswerEditor(item: item) }
             .onAppear {
                 practice.begin(currentID, ids: queue)
                 reveal = practice.session?.revealed ?? false
