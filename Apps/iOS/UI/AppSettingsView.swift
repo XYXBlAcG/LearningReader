@@ -14,7 +14,7 @@ struct AppSettingsView: View {
                 Section("外观") { AppearancePicker() }
                 Section("导航") {
                     Picker("底栏",selection:$bar){ForEach(LearningBarPreference.allCases){value in Text(value.title).tag(value)}}
-                    Toggle("双击页边空白打开本页目录",isOn:$doubleTap)
+                    Toggle("双击页面空白打开本页目录",isOn:$doubleTap)
                 }
                 Section("课程同步") { Button("GitHub 登录与设置") { github = true } }
                 Section("学习") {NavigationLink("复习与提醒"){PracticeSettingsView()}}

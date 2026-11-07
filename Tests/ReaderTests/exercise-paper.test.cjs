@@ -75,3 +75,10 @@ test('iOS questions-only mode removes authoring preface and trailing knowledge l
   const original=await dom.window.ReaderPaper.prepare(source,{},()=>null);assert.match(original.html,/背景笔记|阅读导言/);
  }finally{dom.window.close()}
 });
+test('iOS knowledge connection filtering recognizes both spellings and nested labels',async()=>{
+ const dom=paper();try{
+  const source='# 练习\n\n## 题目\n\n1. 求 $x^2$ 的导数。\n\n## 知识连接\n\n链接秘密A\n\n## 参考答案\n\n1. $2x$\n\n> **知识链接：** [链接秘密B](note.md)\n\n**知识连接：**\n\n- [链接秘密C](other.md)';
+  const result=await dom.window.ReaderPaper.prepare(source,{answers:true,excludeKnowledge:true},()=>null);
+  assert.doesNotMatch(result.html,/链接秘密|知识连接|知识链接/);assert.match(result.html,/2x/);
+ }finally{dom.window.close()}
+});

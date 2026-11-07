@@ -30,3 +30,12 @@ a { color:inherit; text-decoration:none; overflow-wrap:anywhere; }
 blockquote { margin:8pt 0; padding-left:10pt; border-left:2pt solid #999; }
 
 .math-select-anchor { font-size:0; }
+
+@font-face{font-family:"Latin Modern Roman";src:url("vendor/latin-modern/lmroman10-regular.otf") format("opentype");font-weight:400;font-style:normal}
+body[data-tex="true"]{font-family:"Latin Modern Roman","Songti SC",STSong,serif}
+body[data-personalized="true"] h1{font-size:1.73em}
+body[data-personalized="true"] h2{font-size:1.36em}
+body[data-personalized="true"] h3,body[data-personalized="true"] h4{font-size:1.1em}
+body[data-personalized="true"] table{font-size:.91em}
+@font-face{font-family:"Latin Modern Roman";src:url("vendor/latin-modern/lmroman10-bold.otf") format("opentype");font-weight:700;font-style:normal}
+@font-face{font-family:"Latin Modern Roman";src:url("vendor/latin-modern/lmroman10-italic.otf") format("opentype");font-weight:400;font-style:italic}

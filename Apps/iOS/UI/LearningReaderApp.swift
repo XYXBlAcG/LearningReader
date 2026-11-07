@@ -25,6 +25,8 @@ struct LearningView: View {
     @ObservedObject var model: ReaderModel
     @StateObject private var reader = ReaderController()
     @StateObject private var journal=LearningJournal()
+    @StateObject private var classroom=ClassroomWorkspace()
+    @State private var classrooms=false
     @State private var tab=LearningTab.home
     @State private var reviewID:UUID?
     @State private var chapterSource:LearningLocation?
@@ -62,19 +64,20 @@ struct LearningView: View {
     }
     private var rootTabs:some View {
         TabView(selection:$tab){
-            NavigationStack{LearningHomeView(model:model,reader:reader,journal:journal,onContinue:{reviewID=nil;tab = .study},onReview:startReview,onOpen:openLocation,onSettings:{settings=true},onCourses:{tab = .catalog}).toolbar{navigationMenu}}.tabItem{Label("主界面",systemImage:"house")}.tag(LearningTab.home)
-            NavigationStack{courseSidebar.toolbar{navigationMenu}}.tabItem{Label("目录",systemImage:"list.bullet")}.tag(LearningTab.catalog)
+            NavigationStack{LearningHomeView(model:model,reader:reader,journal:journal,onContinue:{reviewID=nil;tab = .study},onReview:startReview,onOpen:openLocation,onSettings:{settings=true},onCourses:{tab = .catalog},onClassroom:{classrooms=true}).toolbar{navigationMenu}}.toolbar(bar.hides(tab) ? .hidden:.visible,for:.tabBar).tabItem{Label("主界面",systemImage:"house")}.tag(LearningTab.home)
+            NavigationStack{courseSidebar.toolbar{navigationMenu}}.toolbar(bar.hides(tab) ? .hidden:.visible,for:.tabBar).tabItem{Label("目录",systemImage:"list.bullet")}.tag(LearningTab.catalog)
             NavigationStack{
                 ZStack {
                     readerContent.opacity(reviewID==nil ? 1:0).allowsHitTesting(reviewID==nil).accessibilityHidden(reviewID != nil)
                     if let reviewID {PracticeDetailView(id:reviewID).toolbar{ToolbarItem(placement:.topBarLeading){Button("回到正文"){self.reviewID=nil}};navigationMenu}}
                 }
-            }.tabItem{Label("学习",systemImage:"book")}.tag(LearningTab.study)
-        }.toolbar(bar.hides(tab) ? .hidden:.visible,for:.tabBar)
+            }.toolbar(bar.hides(tab) ? .hidden:.visible,for:.tabBar).tabItem{Label("学习",systemImage:"book")}.tag(LearningTab.study)
+        }
     }
     @ToolbarContentBuilder private var navigationMenu:some ToolbarContent {
         ToolbarItem(placement:.topBarTrailing){Menu{
             ForEach(LearningTab.allCases){page in Button(page.title,systemImage:page.symbol){tab=page}}
+            Button("课堂记录",systemImage:"pencil.and.list.clipboard"){classrooms=true}
             Button("设置",systemImage:"gearshape"){settings=true}
         }label:{Image(systemName:"ellipsis.circle")}.accessibilityLabel("页面与设置")}
     }
@@ -91,6 +94,7 @@ struct LearningView: View {
     }
     @ViewBuilder private var readerMenu:some View {
         Section("页面"){ForEach(LearningTab.allCases){page in Button(page.title,systemImage:page.symbol){tab=page}}}
+        Button("课堂记录",systemImage:"pencil.and.list.clipboard"){classrooms=true}
         Button("加入章节回顾",systemImage:"calendar.badge.plus"){chapterSource=currentLocation}.disabled(currentLocation==nil)
         Button("搜索", systemImage: "magnifyingglass") { tab = .catalog }
         Button("前进", systemImage: "chevron.right") { reader.send("forward") }.disabled(reader.state?.canForward != true)
@@ -183,6 +187,7 @@ struct LearningView: View {
     private var readerDetail:some View {
         personalPresentations
             .sheet(isPresented:$about){AboutView()}
+            .sheet(isPresented:$classrooms){ClassroomLibraryView(workspace:classroom,model:model,source:currentLocation)}
             .sheet(item:$chapterSource){source in ChapterReviewEditor(source:source,journal:journal,onRead:{openLocation(source)})}
             .sheet(isPresented: $settings) { AppSettingsView(model: model,reader:reader) }
             .sheet(isPresented: $history) { ReadingHistoryView(reader: reader) }

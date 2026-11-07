@@ -1,5 +1,6 @@
 'use strict';
 const graphPanel=ReaderKnowledgeGraph.createView({
+  spacious:true,
   container:document.getElementById('graphCanvas'),
   empty:document.getElementById('graphEmpty'),
   incoming:document.getElementById('graphIncoming'),

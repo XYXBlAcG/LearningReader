@@ -31,7 +31,14 @@
      const level=/^H[1-6]$/.test(node.tagName)?Number(node.tagName[1]):null;
      if(skipped!==null&&level!==null&&level<=skipped)skipped=null;
      const name=node.textContent.trim().replace(/^(?:[（(]?\d+(?:\.\d+)*[）)]?|[一二三四五六七八九十]+)[.、．\s]+/,'');
-     if(level!==null&&/^(?:知识链[接连]|知识关联|相关笔记|相关知识)(?:$|[:：（(\s])/.test(name))skipped=level;
+     const auxiliary=/^(?:知识(?:链接|连接)|知识关联|相关笔记|相关知识)(?:$|[:：（(\s])/;
+     if(level!==null&&auxiliary.test(name))skipped=level;
+     if(level===null&&auxiliary.test(name)){
+      const next=node.nextElementSibling;
+      if(next?.matches('ul,ol')&&next.querySelector('a')&&!next.querySelector('[data-math-source],[data-checkpoint]'))next.remove();
+      node.remove();continue;
+     }
+     for(const nested of [...node.querySelectorAll('blockquote,p,li')])if(auxiliary.test(nested.textContent.trim()))nested.remove();
      if(skipped!==null)node.remove();
     }
    }

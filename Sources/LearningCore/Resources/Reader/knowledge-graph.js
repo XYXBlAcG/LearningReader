@@ -143,7 +143,7 @@
       instance = cytoscape({
         container: options.container,
         elements,
-        minZoom: .45,
+        minZoom: options.spacious ? .2:.45,
         maxZoom: 2.2,
         style: [
           { selector: "node", style: {
@@ -170,7 +170,7 @@
             "line-color": "#d08a45", "target-arrow-color": "#d08a45",
           } },
         ],
-        layout: { name: "cose", animate: false, padding: 20, nodeRepulsion: 9000, idealEdgeLength: 85 },
+        layout: { name: "cose", animate: false, padding: 20, nodeRepulsion: options.spacious ? 36000:9000, idealEdgeLength: options.spacious ? 170:85, nodeDimensionsIncludeLabels: !!options.spacious, componentSpacing: options.spacious ? 140:40 },
       });
       instance.on("tap", "node", (event) => options.onNavigate(event.target.data()));
     }
@@ -203,7 +203,7 @@
         if (instance) {
           instance.resize();
           instance.layout({
-            name: "cose", animate: false, padding: 20, nodeRepulsion: 9000, idealEdgeLength: 85,
+            name: "cose", animate: false, padding: 20, nodeRepulsion: options.spacious ? 36000:9000, idealEdgeLength: options.spacious ? 170:85, nodeDimensionsIncludeLabels: !!options.spacious, componentSpacing: options.spacious ? 140:40,
           }).run();
           instance.fit(undefined, 20);
         }

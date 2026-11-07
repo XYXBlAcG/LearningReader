@@ -11,8 +11,7 @@ struct AISelectionCommand {
 @MainActor
 final class ExplainingWebView: WKWebView, UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer:UIGestureRecognizer,shouldReceive touch:UITouch)->Bool {
-        let point=touch.location(in:self)
-        return marginDoubleTapEnabled && courseSelection && (point.x<20 || point.x>bounds.width-20)
+        return marginDoubleTapEnabled && courseSelection
     }
     func gestureRecognizer(_ gestureRecognizer:UIGestureRecognizer,shouldRecognizeSimultaneouslyWith otherGestureRecognizer:UIGestureRecognizer)->Bool {true}
     var marginDoubleTapEnabled=false
@@ -20,8 +19,20 @@ final class ExplainingWebView: WKWebView, UIGestureRecognizerDelegate {
     @objc private func showOutline(_ gesture:UITapGestureRecognizer){
         guard marginDoubleTapEnabled,courseSelection,gesture.state == .ended else{return}
         let point=gesture.location(in:self)
-        guard point.x<20 || point.x>bounds.width-20 else{return}
-        callAsyncJavaScript("const node=document.elementFromPoint(x,y);return window.getSelection()?.isCollapsed !== false && (window.visualViewport?.scale ?? 1)===1 && !!node && !node.closest('a,button,input,textarea,select,code,pre,svg,canvas,mjx-container,[data-math-source],.glossary-term,[contenteditable=true]');",arguments:["x":point.x,"y":point.y],in:nil,in:.page){[weak self] result in if case .success(let value)=result,value as? Bool==true {self?.onOutlineGesture?()}}
+        let script="""
+        const node=document.elementFromPoint(x,y);
+        if(!node || window.getSelection()?.isCollapsed===false || (window.visualViewport?.scale ?? 1)!==1 || node.closest('a,button,input,textarea,select,code,pre,svg,canvas,mjx-container,[data-math-source],.glossary-term,[contenteditable=true]'))return false;
+        const area=document.getElementById('readerBody');if(!area || !(area.contains(node)||node.id==='main'))return false;
+        const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
+        while(walker.nextNode()){
+            const text=walker.currentNode;if(!text.textContent.trim())continue;
+            const range=document.createRange();range.selectNodeContents(text);
+            for(const rect of range.getClientRects())if(x>=rect.left-2 && x<=rect.right+2 && y>=rect.top-2 && y<=rect.bottom+2)return false;
+        }
+        return true;
+        """
+        callAsyncJavaScript(script,arguments:["x":point.x,"y":point.y],in:nil,in:.page){[weak self] result in if case .success(let value)=result,value as? Bool==true {self?.onOutlineGesture?()}}
+
     }
     var onMark:((@escaping @MainActor () async throws -> AIMaterial,Bool)->Void)?
     var onAction: ((AISelectionCommand) -> Void)?

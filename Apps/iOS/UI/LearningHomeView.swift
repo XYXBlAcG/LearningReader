@@ -12,6 +12,7 @@ struct LearningHomeView:View {
     let onOpen:(LearningLocation)->Void
     let onSettings:()->Void
     let onCourses:()->Void
+    let onClassroom:()->Void
     @State private var date=Date()
     @State private var followingToday=true
     @Environment(\.scenePhase) private var scenePhase
@@ -53,6 +54,7 @@ struct LearningHomeView:View {
                     if reviewed==0 {Text("这一天没有已记录的评分").foregroundStyle(.secondary)}
                 }
             }
+            Section("课堂记录"){Button("记关键词、收集照片与课件",systemImage:"pencil.and.list.clipboard",action:onClassroom)}
             Section("待回顾章节") {
                 let chapters=journal.archive.chapters.filter{$0.due<day.end}.sorted{$0.due<$1.due}
                 ForEach(chapters){item in Button{chapter=item}label:{VStack(alignment:.leading){Text(item.source.title);Text(item.due.formatted(date:.abbreviated,time:.omitted)).font(.caption).foregroundStyle(.secondary)}}}

@@ -21,3 +21,20 @@ final class LearningHomeTests:XCTestCase {
         XCTAssertEqual(try LearningJournalStore(url:url).archive.events.count,1)
     }
 }
+
+extension LearningHomeTests {
+    func testClassroomRoundTripRetainsSourceAndDraftSnapshot() throws {
+        let url=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer{try? FileManager.default.removeItem(at:url)}
+        let store=try ClassroomStore(root:url)
+        var lesson=ClassroomLesson(title:"中值定理",source:nil)
+        lesson.keywords="罗尔定理"
+        let attachment=try store.importData(Data("课件原文".utf8),name:"lecture.txt",kind:.text)
+        lesson.attachments=[attachment]
+        lesson.drafts=[ClassroomDraft(text:"结论 [S1 p1]",sources:[attachment])]
+        try store.save(lesson)
+        let loaded=try ClassroomStore(root:url)
+        XCTAssertEqual(loaded.lessons.first?.drafts.first?.sources.first?.id,attachment.id)
+        XCTAssertEqual(try Data(contentsOf:loaded.file(attachment)),Data("课件原文".utf8))
+    }
+}

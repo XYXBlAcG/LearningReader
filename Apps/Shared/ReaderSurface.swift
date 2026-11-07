@@ -89,6 +89,7 @@ struct ReaderSurface: PlatformReaderView {
         let seed = "window.READER_LEGACY_STATE=" + String(decoding: try! JSONEncoder().encode(legacy ? legacyState : [:]), as: UTF8.self) + ";"
         configuration.userContentController.addUserScript(WKUserScript(source: identity + seed, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         #if os(iOS)
+        configuration.userContentController.addUserScript(WKUserScript(source:"document.body.classList.add('native-reader')",injectionTime:.atDocumentEnd,forMainFrameOnly:true))
         let web = ExplainingWebView(frame: .zero, configuration: configuration)
         controller.loadedSourceID=sourceID
         web.courseSelection = true

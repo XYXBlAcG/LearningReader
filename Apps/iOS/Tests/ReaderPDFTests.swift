@@ -74,3 +74,23 @@ extension ReaderPDFTests {
         XCTAssertFalse(compact.contains("页眉专用测试标题"),text)
     }
 }
+
+extension ReaderPDFTests {
+    @MainActor
+    func testPersonalizedPrintStyleUsesRequestedMargins() async throws {
+        let renderer=ExercisePDFRenderer()
+        let scene=UIApplication.shared.connectedScenes.compactMap{$0 as? UIWindowScene}.first
+        let window=scene.map{UIWindow(windowScene:$0)} ?? UIWindow(frame:CGRect(x:0,y:0,width:600,height:850))
+        let controller=UIViewController();window.rootViewController=controller
+        controller.view.addSubview(renderer.web);window.isHidden=false
+        defer{window.isHidden=true}
+        let style=ExercisePrintStyle(tex:true,fontSize:14,marginMM:25)
+        let page=ExercisePageRenderer(title:"试卷",header:false,footer:false,inset:style.inset)
+        XCTAssertEqual(page.printableRect.minX,25*72/25.4,accuracy:0.01)
+        let payload=ExercisePaper(title:"试卷",html:"<article><h1>练习</h1><p>1. 求导 $x^2$</p></article>",questionCount:1,warnings:[])
+        let data=try await renderer.export(payload,header:false,footer:false,style:style)
+        XCTAssertGreaterThan(try XCTUnwrap(PDFDocument(data:data)).pageCount,0)
+        let font=try await renderer.web.readerJavaScript("await document.fonts.ready;return document.fonts.check('14pt \"Latin Modern Roman\"')",arguments:[:],world:.page)
+        XCTAssertEqual(font as? Bool,true)
+    }
+}

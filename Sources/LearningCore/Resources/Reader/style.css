@@ -1027,3 +1027,7 @@ body.immersive .prose { max-width: 50rem; }
 }
 
 .question-actions .question-copy[data-state="error"] {color:#c33;}
+
+@media (prefers-color-scheme:dark){
+ body.native-reader .prose blockquote {background:var(--code-bg);border-left-color:var(--line);color:var(--ink)}
+}

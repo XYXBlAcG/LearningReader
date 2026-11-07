@@ -10,6 +10,13 @@ struct ExercisePaper:Codable {
     let warnings:[String]
 }
 
+struct ExercisePrintStyle {
+    var tex=false
+    var fontSize=11.0
+    var marginMM=15.0
+    var inset:CGFloat {CGFloat(min(35,max(8,marginMM))*72/25.4)}
+}
+
 @MainActor
 final class ExercisePDFRenderer:NSObject,WKNavigationDelegate {
     let web:WKWebView
@@ -24,17 +31,17 @@ final class ExercisePDFRenderer:NSObject,WKNavigationDelegate {
         web.backgroundColor = .white
         web.scrollView.contentInsetAdjustmentBehavior = .never
     }
-    func export(_ paper:ExercisePaper,header:Bool=true,footer:Bool=true) async throws -> Data {
-        web.frame.size=CGSize(width:ExercisePageRenderer.contentSize.width,height:ExercisePageRenderer.pageSize.height-2*ExercisePageRenderer.margin-(header ? ExercisePageRenderer.bandHeight:0)-(footer ? ExercisePageRenderer.bandHeight:0))
+    func export(_ paper:ExercisePaper,header:Bool=true,footer:Bool=true,style:ExercisePrintStyle=ExercisePrintStyle()) async throws -> Data {
+        web.frame.size=CGSize(width:ExercisePageRenderer.pageSize.width-2*style.inset,height:ExercisePageRenderer.pageSize.height-2*style.inset-(header ? ExercisePageRenderer.bandHeight:0)-(footer ? ExercisePageRenderer.bandHeight:0))
         try await withCheckedThrowingContinuation { continuation in
             loading=continuation
             web.loadFileURL(ReaderAssets.reader.appendingPathComponent("exercise-paper.html"),allowingReadAccessTo:ReaderAssets.reader)
         }
         try Task.checkCancellation()
         let payload=try JSONSerialization.jsonObject(with:JSONEncoder().encode(paper))
-        _=try await web.readerJavaScript("return await ReaderPaper.render(payload)",arguments:["payload":payload],world:.page)
+        _=try await web.readerJavaScript("document.body.dataset.personalized='true';document.body.dataset.tex=tex ? 'true':'false';document.body.style.fontSize=fontSize+'pt';return await ReaderPaper.render(payload)",arguments:["payload":payload,"tex":style.tex,"fontSize":min(18,max(9,style.fontSize))],world:.page)
         try Task.checkCancellation()
-        let pages=ExercisePageRenderer(title:paper.title,header:header,footer:footer)
+        let pages=ExercisePageRenderer(title:paper.title,header:header,footer:footer,inset:style.inset)
         pages.addPrintFormatter(web.viewPrintFormatter(),startingAtPageAt:0)
         pages.prepare(forDrawingPages:NSRange(location:0,length:1))
         guard pages.numberOfPages>0 else {throw ReaderError.course("试卷没有可打印的页面。")}
@@ -60,9 +67,10 @@ final class ExercisePageRenderer:UIPrintPageRenderer {
     static let bandHeight:CGFloat=18
     static var contentSize:CGSize {CGSize(width:pageSize.width-2*margin,height:pageSize.height-2*(margin+bandHeight))}
     let title:String
+    let inset:CGFloat
     override var paperRect:CGRect {CGRect(origin:.zero,size:Self.pageSize)}
-    override var printableRect:CGRect {paperRect.insetBy(dx:Self.margin,dy:Self.margin)}
-    init(title:String,header:Bool=true,footer:Bool=true) {self.title=title;super.init();headerHeight=header ? Self.bandHeight:0;footerHeight=footer ? Self.bandHeight:0}
+    override var printableRect:CGRect {paperRect.insetBy(dx:inset,dy:inset)}
+    init(title:String,header:Bool=true,footer:Bool=true,inset:CGFloat=ExercisePageRenderer.margin) {self.title=title;self.inset=inset;super.init();headerHeight=header ? Self.bandHeight:0;footerHeight=footer ? Self.bandHeight:0}
     override func drawHeaderForPage(at pageIndex:Int,in headerRect:CGRect) {
         guard headerHeight>0 else {return}
         let area=CGRect(x:printableRect.minX,y:printableRect.minY,width:printableRect.width,height:headerHeight)

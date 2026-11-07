@@ -9,6 +9,9 @@ struct ExerciseExportView:View {
     @AppStorage("paperHeader") private var header=false
     @AppStorage("paperFooter") private var footer=false
     @AppStorage("paperFullBody") private var fullBody=false
+    @AppStorage("paperTeX") private var tex=true
+    @AppStorage("paperFontSize") private var fontSize=11.0
+    @AppStorage("paperMarginMM") private var marginMM=15.0
     @State private var answers=false
     @State private var space="medium"
     @State private var generating=false
@@ -26,6 +29,9 @@ struct ExerciseExportView:View {
                         Text("标准").tag("medium")
                         Text("更多").tag("large")
                     }
+                    Toggle("Latin Modern／宋体（TeX 风格）",isOn:$tex)
+                    Stepper("字号 \(Int(fontSize)) pt",value:$fontSize,in:9...18)
+                    Stepper("页边距 \(Int(marginMM)) mm",value:$marginMM,in:8...35)
                     Toggle("答案另起页附后",isOn:$answers)
                     Toggle("显示页眉",isOn:$header)
                     Toggle("显示页脚／页码",isOn:$footer)
@@ -60,7 +66,7 @@ struct ExerciseExportView:View {
                     guard let raw else {throw ReaderError.invalidIndex}
                     let prepared=try JSONDecoder().decode(ExercisePaper.self,from:JSONSerialization.data(withJSONObject:raw))
                     paper=prepared
-                    let data=try await renderer.export(prepared,header:header,footer:footer)
+                    let data=try await renderer.export(prepared,header:header,footer:footer,style:ExercisePrintStyle(tex:tex,fontSize:fontSize,marginMM:marginMM))
                     try Task.checkCancellation()
                     let folder=FileManager.default.temporaryDirectory.appendingPathComponent("ExercisePDF/"+UUID().uuidString,isDirectory:true)
                     try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
